@@ -1,0 +1,170 @@
+id: load_raw_inec
+namespace: pset2
+
+tasks:
+
+  - id: create_database
+    type: io.kestra.plugin.jdbc.snowflake.Query
+
+    url: "jdbc:snowflake://{{ envs.snowflake_account }}.snowflakecomputing.com"
+    username: "{{ envs.snowflake_user }}"
+    password: "{{ envs.snowflake_password }}"
+    warehouse: "{{ envs.snowflake_warehouse }}"
+    role: "{{ envs.snowflake_role }}"
+
+    sql: |
+      CREATE DATABASE IF NOT EXISTS {{ envs.snowflake_database }};
+
+  - id: create_bronze_schema
+    type: io.kestra.plugin.jdbc.snowflake.Query
+
+    url: "jdbc:snowflake://{{ envs.snowflake_account }}.snowflakecomputing.com"
+    username: "{{ envs.snowflake_user }}"
+    password: "{{ envs.snowflake_password }}"
+    warehouse: "{{ envs.snowflake_warehouse }}"
+    database: "{{ envs.snowflake_database }}"
+    role: "{{ envs.snowflake_role }}"
+
+    sql: |
+      CREATE SCHEMA IF NOT EXISTS {{ envs.snowflake_schema }};
+
+
+  - id: create_bronze_table
+    type: io.kestra.plugin.jdbc.snowflake.Query
+
+    url: "jdbc:snowflake://{{ envs.snowflake_account }}.snowflakecomputing.com"
+    username: "{{ envs.snowflake_user }}"
+    password: "{{ envs.snowflake_password }}"
+    warehouse: "{{ envs.snowflake_warehouse }}"
+    database: "{{ envs.snowflake_database }}"
+    schema: "{{ envs.snowflake_schema }}"
+    role: "{{ envs.snowflake_role }}"
+
+    sql: |
+      CREATE TABLE IF NOT EXISTS INEC_POBLACION_RAW (
+        ID VARCHAR,
+        NAME_ES VARCHAR,
+        VALUE VARCHAR,
+        NOTES VARCHAR,
+        _SOURCE_FILE VARCHAR,
+        _INGESTED_AT TIMESTAMP_NTZ
+      );
+
+  - id: prepare_inec_csv
+    type: io.kestra.plugin.scripts.python.Script
+
+    taskRunner:
+      type: io.kestra.plugin.core.runner.Process
+
+    beforeCommands:
+      - pip install --target=./deps pandas openpyxl
+
+    env:
+      PYTHONPATH: "./deps"
+
+    outputFiles:
+      - inec.csv
+
+    script: |
+      import pandas as pd
+
+      archivo = "/app/data/inec/Población_total por cantón.xlsx"
+
+      df = pd.read_excel(
+          archivo,
+          dtype=str,
+          keep_default_na=False,
+          engine="openpyxl"
+      )
+
+      df.to_csv(
+          "inec.csv",
+          index=False,
+          sep=";",
+          encoding="utf-8"
+      )
+
+  - id: upload_to_stage
+    type: io.kestra.plugin.jdbc.snowflake.Upload
+
+    retry:
+      type: constant
+      interval: PT10S
+      maxAttempts: 3
+
+    url: "jdbc:snowflake://{{ envs.snowflake_account }}.snowflakecomputing.com"
+    username: "{{ envs.snowflake_user }}"
+    password: "{{ envs.snowflake_password }}"
+    warehouse: "{{ envs.snowflake_warehouse }}"
+    database: "{{ envs.snowflake_database }}"
+    schema: "{{ envs.snowflake_schema }}"
+    role: "{{ envs.snowflake_role }}"
+
+    from: "{{ outputs.prepare_inec_csv.outputFiles['inec.csv'] }}"
+    fileName: "inec.csv"
+    prefix: "prepared"
+    stageName: "@{{ envs.snowflake_database }}.{{ envs.snowflake_schema }}.%INEC_POBLACION_RAW"
+    compress: false
+
+  - id: delete_inec
+    type: io.kestra.plugin.jdbc.snowflake.Query
+
+    url: "jdbc:snowflake://{{ envs.snowflake_account }}.snowflakecomputing.com"
+    username: "{{ envs.snowflake_user }}"
+    password: "{{ envs.snowflake_password }}"
+    warehouse: "{{ envs.snowflake_warehouse }}"
+    database: "{{ envs.snowflake_database }}"
+    schema: "{{ envs.snowflake_schema }}"
+    role: "{{ envs.snowflake_role }}"
+
+    sql: |
+      DELETE FROM INEC_POBLACION_RAW
+      WHERE _SOURCE_FILE = 'Población_total por cantón.xlsx';
+
+  - id: copy_into_bronze
+    type: io.kestra.plugin.jdbc.snowflake.Query
+
+    retry:
+      type: constant
+      interval: PT15S
+      maxAttempts: 2
+
+    url: "jdbc:snowflake://{{ envs.snowflake_account }}.snowflakecomputing.com"
+    username: "{{ envs.snowflake_user }}"
+    password: "{{ envs.snowflake_password }}"
+    warehouse: "{{ envs.snowflake_warehouse }}"
+    database: "{{ envs.snowflake_database }}"
+    schema: "{{ envs.snowflake_schema }}"
+    role: "{{ envs.snowflake_role }}"
+
+    sql: |
+      COPY INTO INEC_POBLACION_RAW (
+        ID,
+        NAME_ES,
+        VALUE,
+        NOTES,
+        _SOURCE_FILE,
+        _INGESTED_AT
+      )
+      FROM (
+        SELECT
+          $1,
+          $2,
+          $3,
+          $4,
+          'Población_total por cantón.xlsx',
+          CURRENT_TIMESTAMP()
+        FROM @{{ envs.snowflake_database }}.{{ envs.snowflake_schema }}.%INEC_POBLACION_RAW/prepared/inec.csv
+      )
+      FILE_FORMAT = (
+        TYPE = CSV
+        FIELD_DELIMITER = ';'
+        SKIP_HEADER = 1
+        FIELD_OPTIONALLY_ENCLOSED_BY = '"'
+        COMPRESSION = NONE
+        ENCODING = 'UTF8'
+      )
+      ON_ERROR = 'ABORT_STATEMENT'
+      FORCE = TRUE;
+  
+

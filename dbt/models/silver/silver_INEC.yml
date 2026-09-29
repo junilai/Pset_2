@@ -1,0 +1,22 @@
+version: 2
+
+models:
+  - name: silver_INEC
+
+    columns:
+      - name: canton_id
+        tests:
+          - not_null
+          - unique
+
+      - name: canton
+        tests:
+          - not_null
+
+      - name: poblacion
+        tests:
+          - not_null
+      
+      - name: canton_ecu911
+        tests:
+          - not_null

@@ -1,0 +1,30 @@
+version: 2
+
+models:
+  - name: dim_fecha
+
+    columns:
+      - name: fecha
+        tests:
+          - not_null
+          - unique
+
+      - name: anio
+        tests:
+          - not_null
+
+      - name: mes
+        tests:
+          - not_null
+
+      - name: dia
+        tests:
+          - not_null
+
+      - name: dia_semana
+        tests:
+          - not_null
+
+      - name: es_fin_semana
+        tests:
+          - not_null

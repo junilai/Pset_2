@@ -1,0 +1,25 @@
+version: 2
+
+models:
+  - name: fact_emergencias_canton_dia
+
+    columns:
+      - name: fecha
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_fecha')
+                field: fecha
+
+      - name: provincia
+        tests:
+          - not_null
+
+      - name: canton
+        tests:
+          - not_null
+
+      - name: total_emergencias
+        tests:
+          - not_null

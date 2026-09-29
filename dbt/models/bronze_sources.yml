@@ -1,0 +1,10 @@
+version: 2
+
+sources:
+  - name: bronze
+    database: ECU911
+    schema: BRONZE
+
+    tables:
+      - name: ECU911_EMERGENCIAS_RAW
+      - name: INEC_POBLACION_RAW

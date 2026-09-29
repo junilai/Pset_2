@@ -1,0 +1,544 @@
+id: load_raw
+namespace: pset2
+
+inputs:
+  - id: source_month
+    type: STRING
+    required: false
+
+variables:
+  run_month: "{{ trigger.date is defined ? ((trigger.date | dateAdd(-1, 'MONTHS')) | date('yyyy-MM')) : inputs.source_month }}"  
+  files:
+
+    "2021-07":
+      url: "https://www.datosabiertos.gob.ec/dataset/00c650e7-42a9-4f3c-9f29-45000091f8b3/resource/07e1f4d2-812f-4ddd-96c8-55ec77596c7f/download/emergencias_julio_2021.csv"
+      file: "emergencias_julio_2021.csv"
+      format: "csv"
+
+    "2021-08":
+      url: "https://www.datosabiertos.gob.ec/dataset/00c650e7-42a9-4f3c-9f29-45000091f8b3/resource/796c6d5f-fa72-4ab3-b6c7-9bc2884e28f7/download/emergencias_agosto_2021.csv"
+      file: "emergencias_agosto_2021.csv"
+      format: "csv"
+
+    "2021-09":
+      url: "https://www.datosabiertos.gob.ec/dataset/00c650e7-42a9-4f3c-9f29-45000091f8b3/resource/d676c1d0-c8a3-409a-a217-b7fc8018cef7/download/emergencias_septiembre_2021.csv"
+      file: "emergencias_septiembre_2021.csv"
+      format: "csv"
+
+    "2021-10":
+      url: "https://www.datosabiertos.gob.ec/dataset/00c650e7-42a9-4f3c-9f29-45000091f8b3/resource/619d64c3-4c2a-46b0-acb1-fd918af300a8/download/emergencias_octubre_2021.csv"
+      file: "emergencias_octubre_2021.csv"
+      format: "csv"
+
+    "2021-11":
+      url: "https://www.datosabiertos.gob.ec/dataset/00c650e7-42a9-4f3c-9f29-45000091f8b3/resource/9d666fa7-f908-4db1-943c-797546266905/download/emergencias_noviembre_2021.csv"
+      file: "emergencias_noviembre_2021.csv"
+      format: "csv"
+
+    "2021-12":
+      url: "https://www.datosabiertos.gob.ec/dataset/00c650e7-42a9-4f3c-9f29-45000091f8b3/resource/a282ac37-070e-4629-b576-4d2bb087e5a8/download/emergencias_diciembre_2021.csv"
+      file: "emergencias_diciembre_2021.csv"
+      format: "csv"
+
+    "2022-01":
+      url: "https://www.datosabiertos.gob.ec/dataset/00c650e7-42a9-4f3c-9f29-45000091f8b3/resource/20470b50-7c93-472b-92bf-dad8b3caa317/download/emergencias_enero_2022.csv"
+      file: "emergencias_enero_2022.csv"
+      format: "csv"
+
+    "2022-02":
+      url: "https://www.datosabiertos.gob.ec/dataset/00c650e7-42a9-4f3c-9f29-45000091f8b3/resource/409864e9-3748-4c66-823b-1b3ed92a3cd9/download/emergencias_febrero_2022.csv"
+      file: "emergencias_febrero_2022.csv"
+      format: "csv"
+
+    "2022-03":
+      url: "https://www.datosabiertos.gob.ec/dataset/00c650e7-42a9-4f3c-9f29-45000091f8b3/resource/0a45aae3-841d-47e6-90e4-92f78f8151f4/download/emergencias_marzo_2022.csv"
+      file: "emergencias_marzo_2022.csv"
+      format: "csv"
+
+    "2022-04":
+      url: "https://www.datosabiertos.gob.ec/dataset/00c650e7-42a9-4f3c-9f29-45000091f8b3/resource/c870e8cf-4f24-46c5-b947-c998b1c8f2b8/download/emergencias_abril_2022.csv"
+      file: "emergencias_abril_2022.csv"
+      format: "csv"
+
+    "2022-05":
+      url: "https://www.datosabiertos.gob.ec/dataset/00c650e7-42a9-4f3c-9f29-45000091f8b3/resource/cb84394c-1176-4f43-b416-a4ca5aef5259/download/emergencias_mayo_2022.csv"
+      file: "emergencias_mayo_2022.csv"
+      format: "csv"
+
+    "2022-06":
+      url: "https://www.datosabiertos.gob.ec/dataset/00c650e7-42a9-4f3c-9f29-45000091f8b3/resource/6b63662c-6014-49da-b915-012a9cb660b7/download/emergencias_junio_2022.csv"
+      file: "emergencias_junio_2022.csv"
+      format: "csv"
+
+    "2022-07":
+      url: "https://www.datosabiertos.gob.ec/dataset/00c650e7-42a9-4f3c-9f29-45000091f8b3/resource/08edb4b8-82f7-4d45-9b85-3d1c46740644/download/emergencias_julio_2022.csv"
+      file: "emergencias_julio_2022.csv"
+      format: "csv"
+
+    "2022-08":
+      url: "https://www.datosabiertos.gob.ec/dataset/00c650e7-42a9-4f3c-9f29-45000091f8b3/resource/2f88d6da-71e9-4351-8c6e-f22531679ac3/download/emergencias_agosto_2022.csv"
+      file: "emergencias_agosto_2022.csv"
+      format: "csv"
+
+    "2022-09":
+      url: "https://www.datosabiertos.gob.ec/dataset/00c650e7-42a9-4f3c-9f29-45000091f8b3/resource/0f51a4ad-fdb7-40d2-8a53-c40fb9f8090c/download/emergencias_septiembre_2022.csv"
+      file: "emergencias_septiembre_2022.csv"
+      format: "csv"
+
+    "2022-10":
+      url: "https://www.datosabiertos.gob.ec/dataset/00c650e7-42a9-4f3c-9f29-45000091f8b3/resource/189a02b8-e3c4-4d79-a9f9-9857a9287dfd/download/emergencias_octubre_2022.csv"
+      file: "emergencias_octubre_2022.csv"
+      format: "csv"
+
+    "2022-11":
+      url: "https://www.datosabiertos.gob.ec/dataset/00c650e7-42a9-4f3c-9f29-45000091f8b3/resource/1191289e-087f-4503-a8e4-8ea648d1cbcd/download/emergencias_noviembre_2022.csv"
+      file: "emergencias_noviembre_2022.csv"
+      format: "csv"
+
+    "2022-12":
+      url: "https://www.datosabiertos.gob.ec/dataset/00c650e7-42a9-4f3c-9f29-45000091f8b3/resource/a3020953-6cab-4d67-b62d-efb9228b7651/download/emergencias_diciembre_2022.csv"
+      file: "emergencias_diciembre_2022.csv"
+      format: "csv"
+
+    "2023-01":
+      url: "https://www.datosabiertos.gob.ec/dataset/00c650e7-42a9-4f3c-9f29-45000091f8b3/resource/fdde7f15-e6b7-41bb-b4b1-78dd571e1783/download/emergencias_enero_2023.csv"
+      file: "emergencias_enero_2023.csv"
+      format: "csv"
+
+    "2023-02":
+      url: "https://www.datosabiertos.gob.ec/dataset/00c650e7-42a9-4f3c-9f29-45000091f8b3/resource/1c9d4351-a32b-4747-9737-c0e3920ba97f/download/emergencias_febrero_2023.csv"
+      file: "emergencias_febrero_2023.csv"
+      format: "csv"
+
+    "2023-03":
+      url: "https://www.datosabiertos.gob.ec/dataset/00c650e7-42a9-4f3c-9f29-45000091f8b3/resource/b5262bab-d4a1-4a3c-a159-c9bfaeff1655/download/emergencias_marzo_2023.csv"
+      file: "emergencias_marzo_2023.csv"
+      format: "csv"
+
+    "2023-04":
+      url: "https://www.datosabiertos.gob.ec/dataset/00c650e7-42a9-4f3c-9f29-45000091f8b3/resource/bfc43c4b-39c1-49d2-8108-5205165698c3/download/emergencias_abril_2023.csv"
+      file: "emergencias_abril_2023.csv"
+      format: "csv"
+
+    "2023-05":
+      url: "https://www.datosabiertos.gob.ec/dataset/00c650e7-42a9-4f3c-9f29-45000091f8b3/resource/57050210-c0b8-499e-843b-4c5562f35a0d/download/emergencias_mayo_2023.csv"
+      file: "emergencias_mayo_2023.csv"
+      format: "csv"
+
+    "2023-06":
+      url: "https://www.datosabiertos.gob.ec/dataset/00c650e7-42a9-4f3c-9f29-45000091f8b3/resource/a5abe741-b434-4c6f-9b3f-9e20a79a06b3/download/emergencias_junio_2023.csv"
+      file: "emergencias_junio_2023.csv"
+      format: "csv"
+
+    "2023-07":
+      url: "https://www.datosabiertos.gob.ec/dataset/00c650e7-42a9-4f3c-9f29-45000091f8b3/resource/4d3dd490-4645-497b-b9b2-2d5600449d6b/download/emergencias_julio_2023.csv"
+      file: "emergencias_julio_2023.csv"
+      format: "csv"
+
+    "2023-08":
+      url: "https://www.datosabiertos.gob.ec/dataset/00c650e7-42a9-4f3c-9f29-45000091f8b3/resource/20065352-f37f-43b0-9f9c-8b0f41269df5/download/emergencias_agosto_2023.csv"
+      file: "emergencias_agosto_2023.csv"
+      format: "csv"
+
+    "2023-09":
+      url: "https://www.datosabiertos.gob.ec/dataset/00c650e7-42a9-4f3c-9f29-45000091f8b3/resource/c18e0199-8853-41f3-b997-61edc406cd8b/download/emergencias_septiembre_2023.csv"
+      file: "emergencias_septiembre_2023.csv"
+      format: "csv"
+
+    "2023-10":
+      url: "https://www.datosabiertos.gob.ec/dataset/00c650e7-42a9-4f3c-9f29-45000091f8b3/resource/2726e1d7-5198-40c1-b25d-9fabd17215f9/download/emergencias_octubre_2023.csv"
+      file: "emergencias_octubre_2023.csv"
+      format: "csv"
+
+    "2023-11":
+      url: "https://www.datosabiertos.gob.ec/dataset/00c650e7-42a9-4f3c-9f29-45000091f8b3/resource/e913f171-b557-449c-9b3f-41d408ee942b/download/emergencias_noviembre_2023.csv"
+      file: "emergencias_noviembre_2023.csv"
+      format: "csv"
+
+    "2023-12":
+      url: "https://www.datosabiertos.gob.ec/dataset/00c650e7-42a9-4f3c-9f29-45000091f8b3/resource/813a03b0-1387-422d-8d00-31f8cc804158/download/emergencias_diciembre_2023.csv"
+      file: "emergencias_diciembre_2023.csv"
+      format: "csv"
+
+    "2024-01":
+      url: "https://www.datosabiertos.gob.ec/dataset/00c650e7-42a9-4f3c-9f29-45000091f8b3/resource/2836fb6b-cb84-4f72-b631-755a832976c7/download/incidentes_enero_2024.csv"
+      file: "incidentes_enero_2024.csv"
+      format: "csv"
+
+    "2024-02":
+      url: "https://www.datosabiertos.gob.ec/dataset/00c650e7-42a9-4f3c-9f29-45000091f8b3/resource/72554c5b-da29-4cc5-b022-3b35ed3e0d09/download/incidentes_febrero_2024.csv"
+      file: "incidentes_febrero_2024.csv"
+      format: "csv"
+
+    "2024-03":
+      url: "https://www.datosabiertos.gob.ec/dataset/00c650e7-42a9-4f3c-9f29-45000091f8b3/resource/3e6ae18b-0cb9-4116-a5a6-af9bf70f49f2/download/incidentes_marzo_2024.csv"
+      file: "incidentes_marzo_2024.csv"
+      format: "csv"
+
+    "2024-04":
+      url: "https://www.datosabiertos.gob.ec/dataset/00c650e7-42a9-4f3c-9f29-45000091f8b3/resource/e3367d5c-d81a-45c9-9507-b1a2a56ca05e/download/incidentes_abril_2024.csv"
+      file: "incidentes_abril_2024.csv"
+      format: "csv"
+
+    "2024-05":
+      url: "https://www.datosabiertos.gob.ec/dataset/00c650e7-42a9-4f3c-9f29-45000091f8b3/resource/704aa310-d017-4781-8bed-fd6bf4ff4174/download/incidentes_mayo_2024.csv"
+      file: "incidentes_mayo_2024.csv"
+      format: "csv"
+
+    "2024-06":
+      url: "https://www.datosabiertos.gob.ec/dataset/00c650e7-42a9-4f3c-9f29-45000091f8b3/resource/9a45248e-c6b2-4d87-a55d-8e87fe667298/download/incidentes_junio_2024.csv"
+      file: "incidentes_junio_2024.csv"
+      format: "csv"
+
+    "2024-07":
+      url: "https://www.datosabiertos.gob.ec/dataset/00c650e7-42a9-4f3c-9f29-45000091f8b3/resource/7d809f2c-b8dc-4b7a-953b-f61840a527e1/download/incidentes_julio_2024.csv"
+      file: "incidentes_julio_2024.csv"
+      format: "csv"
+
+    "2024-08":
+      url: "https://www.datosabiertos.gob.ec/dataset/00c650e7-42a9-4f3c-9f29-45000091f8b3/resource/94370848-29f1-436b-b721-2fe0a8fd25fc/download/incidentes_agosto_2024.csv"
+      file: "incidentes_agosto_2024.csv"
+      format: "csv"
+
+    "2024-09":
+      url: "https://www.datosabiertos.gob.ec/dataset/00c650e7-42a9-4f3c-9f29-45000091f8b3/resource/8568e105-fbc3-4515-b9ab-909850ff8cd5/download/incidentes_septiembre2024.csv"
+      file: "incidentes_septiembre2024.csv"
+      format: "csv"
+
+    "2024-10":
+      url: "https://www.datosabiertos.gob.ec/dataset/00c650e7-42a9-4f3c-9f29-45000091f8b3/resource/97745e4d-1a1b-4198-b837-4aabf65926d7/download/incidentes_octubre2024.csv"
+      file: "incidentes_octubre2024.csv"
+      format: "csv"
+
+    "2024-11":
+      url: "https://www.datosabiertos.gob.ec/dataset/00c650e7-42a9-4f3c-9f29-45000091f8b3/resource/55e8de8b-9e8f-49a3-b724-129198e49c51/download/incidentes_noviembre2024.csv"
+      file: "incidentes_noviembre2024.csv"
+      format: "csv"
+
+    "2024-12":
+      url: "https://www.datosabiertos.gob.ec/dataset/00c650e7-42a9-4f3c-9f29-45000091f8b3/resource/0483e572-88ea-4378-8f1c-065966e098c5/download/incidentes_diciembre2024.csv"
+      file: "incidentes_diciembre2024.csv"
+      format: "csv"
+
+    "2025-01":
+      url: "https://www.datosabiertos.gob.ec/dataset/00c650e7-42a9-4f3c-9f29-45000091f8b3/resource/7cd21976-8d98-491d-9385-7225fbdb637f/download/incidentes_enero_2025.csv"
+      file: "incidentes_enero_2025.csv"
+      format: "csv"
+
+    "2025-02":
+      url: "https://www.datosabiertos.gob.ec/dataset/00c650e7-42a9-4f3c-9f29-45000091f8b3/resource/149fbcac-cc0c-4c17-ac40-3666d282777b/download/incidentes_febrero_2025.csv"
+      file: "incidentes_febrero_2025.csv"
+      format: "csv"
+
+    "2025-03":
+      url: "https://www.datosabiertos.gob.ec/dataset/00c650e7-42a9-4f3c-9f29-45000091f8b3/resource/bbe148a4-03e5-4e4b-b9f5-740693375e04/download/incidentes_marzo_2025.csv"
+      file: "incidentes_marzo_2025.csv"
+      format: "csv"
+
+    "2025-04":
+      url: "https://www.datosabiertos.gob.ec/dataset/00c650e7-42a9-4f3c-9f29-45000091f8b3/resource/7e8f555e-b7ad-4498-b967-0d8b7bdcb443/download/incidentes_abril_2025.csv"
+      file: "incidentes_abril_2025.csv"
+      format: "csv"
+
+    "2025-05":
+      url: "https://www.datosabiertos.gob.ec/dataset/00c650e7-42a9-4f3c-9f29-45000091f8b3/resource/f049a6f8-0975-4857-b916-489803fc67d5/download/incidentes_mayo_2025.csv"
+      file: "incidentes_mayo_2025.csv"
+      format: "csv"
+
+    "2025-06":
+      url: "https://www.datosabiertos.gob.ec/dataset/00c650e7-42a9-4f3c-9f29-45000091f8b3/resource/8129978c-bcab-41c9-857f-5bf933b78d3a/download/incidentes_junio_2025.csv"
+      file: "incidentes_junio_2025.csv"
+      format: "csv"
+
+    "2025-07":
+      url: "https://www.datosabiertos.gob.ec/dataset/00c650e7-42a9-4f3c-9f29-45000091f8b3/resource/b7878162-cdae-4638-8c7b-ddaf696572de/download/incidentes_julio_2025.csv"
+      file: "incidentes_julio_2025.csv"
+      format: "csv"
+
+    "2025-08":
+      url: "https://www.datosabiertos.gob.ec/dataset/00c650e7-42a9-4f3c-9f29-45000091f8b3/resource/43be66ba-66b3-416c-9c9f-922daed7660f/download/incidentes_agosto_2025.csv"
+      file: "incidentes_agosto_2025.csv"
+      format: "csv"
+
+    "2025-09":
+      url: "https://www.datosabiertos.gob.ec/dataset/00c650e7-42a9-4f3c-9f29-45000091f8b3/resource/226b56a1-4ac2-4ade-9743-c4f2446efb2a/download/incidentes_septiembre_2025.csv"
+      file: "incidentes_septiembre_2025.csv"
+      format: "csv"
+
+    "2025-10":
+      url: "https://www.datosabiertos.gob.ec/dataset/00c650e7-42a9-4f3c-9f29-45000091f8b3/resource/fd5ba580-bd79-4020-a8c8-ee44f41c7692/download/incidentes_octubre_2025.csv"
+      file: "incidentes_octubre_2025.csv"
+      format: "csv"
+
+    "2025-11":
+      url: "https://www.datosabiertos.gob.ec/dataset/00c650e7-42a9-4f3c-9f29-45000091f8b3/resource/cc780db6-4a79-4081-9909-04d55000f795/download/incidentes_noviembre_2025.csv"
+      file: "incidentes_noviembre_2025.csv"
+      format: "csv"
+
+    "2025-12":
+      url: "https://www.datosabiertos.gob.ec/dataset/00c650e7-42a9-4f3c-9f29-45000091f8b3/resource/77af83c9-86e4-47ee-ad61-76d08542b4d8/download/incidentes_diciembre_2025.csv"
+      file: "incidentes_diciembre_2025.csv"
+      format: "csv"
+
+    "2026-01":
+      url: "https://www.datosabiertos.gob.ec/dataset/00c650e7-42a9-4f3c-9f29-45000091f8b3/resource/0043760b-4e44-4e2b-afe3-decb441fa612/download/incidentes_enero_2026.csv"
+      file: "incidentes_enero_2026.csv"
+      format: "csv"
+
+    "2026-02":
+      url: "https://www.datosabiertos.gob.ec/dataset/00c650e7-42a9-4f3c-9f29-45000091f8b3/resource/27fa0605-dadb-44f4-8bb1-a28f5864919d/download/incidentes_febrero_2026.csv"
+      file: "incidentes_febrero_2026.csv"
+      format: "csv"
+
+    "2026-03":
+      url: "https://www.datosabiertos.gob.ec/dataset/00c650e7-42a9-4f3c-9f29-45000091f8b3/resource/ef7ef990-d3ec-45ea-bbc7-5b3294c8839e/download/incidentes_marzo_2026.csv"
+      file: "incidentes_marzo_2026.csv"
+      format: "csv"
+
+    "2026-04":
+      url: "https://www.datosabiertos.gob.ec/dataset/00c650e7-42a9-4f3c-9f29-45000091f8b3/resource/d74c5756-5ee2-4846-a3d8-162be2fde998/download/incidentes_abril_2026.xlsx"
+      file: "incidentes_abril_2026.xlsx"
+      format: "xlsx"
+
+    "2026-05":
+      url: "https://www.datosabiertos.gob.ec/dataset/00c650e7-42a9-4f3c-9f29-45000091f8b3/resource/5d00ee11-3ef2-406f-9e78-36f291050cfc/download/incidentes_mayo_2026.xlsx"
+      file: "incidentes_mayo_2026.xlsx"
+      format: "xlsx"
+
+    "2026-06":
+      url: "https://www.datosabiertos.gob.ec/dataset/00c650e7-42a9-4f3c-9f29-45000091f8b3/resource/fb45196e-8807-47b7-bfa3-42c554e2ca94/download/incidentes_junio_2026.csv"
+      file: "incidentes_junio_2026.csv"
+      format: "csv"
+
+    "2026-07":
+      url: "https://www.datosabiertos.gob.ec/dataset/00c650e7-42a9-4f3c-9f29-45000091f8b3/resource/0a8cf66c-1de4-4af0-b7d0-0f94d4f6fecf/download/incidentes_julio_2026.csv"
+      file: "incidentes_julio_2026.csv"
+      format: "csv"
+
+    "2026-08":
+      url: "https://www.datosabiertos.gob.ec/dataset/00c650e7-42a9-4f3c-9f29-45000091f8b3/resource/0f25ede9-168b-410d-8814-66fea199ff78/download/incidentes_agosto_2026.csv"
+      file: "incidentes_agosto_2026.csv"
+      format: "csv"
+
+
+tasks:
+
+  - id: create_database
+    type: io.kestra.plugin.jdbc.snowflake.Query
+
+    url: "jdbc:snowflake://{{ envs.snowflake_account }}.snowflakecomputing.com"
+    username: "{{ envs.snowflake_user }}"
+    password: "{{ envs.snowflake_password }}"
+    warehouse: "{{ envs.snowflake_warehouse }}"
+    role: "{{ envs.snowflake_role }}"
+
+    sql: |
+      CREATE DATABASE IF NOT EXISTS {{ envs.snowflake_database }};
+
+  - id: create_bronze_schema
+    type: io.kestra.plugin.jdbc.snowflake.Query
+
+    url: "jdbc:snowflake://{{ envs.snowflake_account }}.snowflakecomputing.com"
+    username: "{{ envs.snowflake_user }}"
+    password: "{{ envs.snowflake_password }}"
+    warehouse: "{{ envs.snowflake_warehouse }}"
+    database: "{{ envs.snowflake_database }}"
+    role: "{{ envs.snowflake_role }}"
+
+    sql: |
+      CREATE SCHEMA IF NOT EXISTS {{ envs.snowflake_schema }};
+
+
+  - id: create_bronze_table
+    type: io.kestra.plugin.jdbc.snowflake.Query
+
+    url: "jdbc:snowflake://{{ envs.snowflake_account }}.snowflakecomputing.com"
+    username: "{{ envs.snowflake_user }}"
+    password: "{{ envs.snowflake_password }}"
+    warehouse: "{{ envs.snowflake_warehouse }}"
+    database: "{{ envs.snowflake_database }}"
+    schema: "{{ envs.snowflake_schema }}"
+    role: "{{ envs.snowflake_role }}"
+
+    sql: |
+      CREATE TABLE IF NOT EXISTS ECU911_EMERGENCIAS_RAW (
+        FECHA VARCHAR,
+        PROVINCIA VARCHAR,
+        CANTON VARCHAR,
+        COD_PARROQUIA VARCHAR,
+        PARROQUIA VARCHAR,
+        SERVICIO VARCHAR,
+        SUBTIPO VARCHAR,
+        _SOURCE_MONTH VARCHAR,
+        _SOURCE_FILE VARCHAR,
+        _INGESTED_AT TIMESTAMP_NTZ
+      );
+
+  - id: download_file
+    type: io.kestra.plugin.core.http.Download
+    uri: "{{ vars.files[render(vars.run_month)].url }}"
+
+    retry:
+      type: constant
+      interval: PT10S
+      maxAttempts: 3
+
+
+  - id: prepare_csv
+    type: io.kestra.plugin.scripts.python.Script
+
+    taskRunner:
+      type: io.kestra.plugin.core.runner.Process
+
+    beforeCommands:
+      - pip install --target=./deps pandas openpyxl
+
+    env:
+      PYTHONPATH: "./deps"
+
+    inputFiles:
+      source_file: "{{ outputs.download_file.uri }}"
+
+    outputFiles:
+      - data.csv
+
+    script: |
+      import shutil
+      import pandas as pd
+
+      source_format = "{{ vars.files[render(vars.run_month)].format }}"
+
+      if source_format == "xlsx":
+        df = pd.read_excel(
+            "source_file",
+            dtype=str,
+            keep_default_na=False,
+            engine="openpyxl"
+        )
+
+        if "Fecha" in df.columns:
+            fechas = pd.to_datetime(
+                df["Fecha"],
+                errors="coerce"
+            )
+
+            df["Fecha"] = fechas.dt.strftime("%d/%m/%Y")
+
+        df.to_csv(
+            "data.csv",
+            index=False,
+            sep=";",
+            encoding="utf-8"
+        )
+
+      elif source_format == "csv":
+          shutil.copyfile(
+              "source_file",
+              "data.csv"
+          )
+
+      else:
+          raise ValueError(
+              f"Formato no soportado: {source_format}"
+          )
+
+  - id: upload_to_stage
+    type: io.kestra.plugin.jdbc.snowflake.Upload
+
+    retry:
+      type: constant
+      interval: PT10S
+      maxAttempts: 3
+
+    url: "jdbc:snowflake://{{ envs.snowflake_account }}.snowflakecomputing.com"
+    username: "{{ envs.snowflake_user }}"
+    password: "{{ envs.snowflake_password }}"
+    warehouse: "{{ envs.snowflake_warehouse }}"
+    database: "{{ envs.snowflake_database }}"
+    schema: "{{ envs.snowflake_schema }}"
+    role: "{{ envs.snowflake_role }}"
+
+    from: "{{ outputs.prepare_csv.outputFiles['data.csv'] }}"
+    fileName: "data.csv"
+    prefix: "prepared/{{ render(vars.run_month) }}"
+    stageName: "@{{ envs.snowflake_database }}.{{ envs.snowflake_schema }}.%ECU911_EMERGENCIAS_RAW"
+    compress: false
+
+
+  - id: delete_existing_month
+    type: io.kestra.plugin.jdbc.snowflake.Query
+
+    url: "jdbc:snowflake://{{ envs.snowflake_account }}.snowflakecomputing.com"
+    username: "{{ envs.snowflake_user }}"
+    password: "{{ envs.snowflake_password }}"
+    warehouse: "{{ envs.snowflake_warehouse }}"
+    database: "{{ envs.snowflake_database }}"
+    schema: "{{ envs.snowflake_schema }}"
+    role: "{{ envs.snowflake_role }}"
+
+    sql: |
+      DELETE FROM ECU911_EMERGENCIAS_RAW
+      WHERE _SOURCE_MONTH = '{{ render(vars.run_month) }}';
+
+  - id: copy_into_bronze
+    type: io.kestra.plugin.jdbc.snowflake.Query
+
+    retry:
+      type: constant
+      interval: PT15S
+      maxAttempts: 2
+
+    url: "jdbc:snowflake://{{ envs.snowflake_account }}.snowflakecomputing.com"
+    username: "{{ envs.snowflake_user }}"
+    password: "{{ envs.snowflake_password }}"
+    warehouse: "{{ envs.snowflake_warehouse }}"
+    database: "{{ envs.snowflake_database }}"
+    schema: "{{ envs.snowflake_schema }}"
+    role: "{{ envs.snowflake_role }}"
+
+    sql: |
+      COPY INTO ECU911_EMERGENCIAS_RAW (
+        FECHA,
+        PROVINCIA,
+        CANTON,
+        COD_PARROQUIA,
+        PARROQUIA,
+        SERVICIO,
+        SUBTIPO,
+        _SOURCE_MONTH,
+        _SOURCE_FILE,
+        _INGESTED_AT
+      )
+      FROM (
+        SELECT
+          $1,
+          $2,
+          $3,
+          $4,
+          $5,
+          $6,
+          $7,
+          '{{ render(vars.run_month) }}',
+          '{{ vars.files[render(vars.run_month)].file }}',
+          CURRENT_TIMESTAMP()
+        FROM @{{ envs.snowflake_database }}.{{ envs.snowflake_schema }}.%ECU911_EMERGENCIAS_RAW/prepared/{{ render(vars.run_month) }}/data.csv
+      )
+      FILE_FORMAT = (
+        TYPE = CSV
+        FIELD_DELIMITER = ';'
+        SKIP_HEADER = 1
+        FIELD_OPTIONALLY_ENCLOSED_BY = '"'
+        COMPRESSION = NONE
+        ENCODING = 'UTF8'
+      )
+      ON_ERROR = 'ABORT_STATEMENT'
+      FORCE = TRUE;
+
+
+triggers:
+  - id: monthly_ingestion
+    type: io.kestra.plugin.core.trigger.Schedule
+    cron: "0 0 5 * *"
+    timezone: America/Guayaquil
+    recoverMissedSchedules: NONE
+    allowConcurrent: true

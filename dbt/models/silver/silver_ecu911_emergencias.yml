@@ -1,0 +1,17 @@
+version: 2
+
+models:
+  - name: silver_ecu911_emergencias
+
+    columns:
+      - name: fecha
+        tests:
+          - not_null
+
+      - name: provincia
+        tests:
+          - not_null
+
+      - name: canton
+        tests:
+          - not_null

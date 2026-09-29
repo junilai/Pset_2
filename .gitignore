@@ -7,22 +7,23 @@
 *.pem
 *.key
 
-  # Datos
+# Datos
 data/raw/
 *.csv
 !data/samples/*.csv
+!dbt/seeds/*.csv
 
-  # dbt
+# dbt
 dbt/target/
 dbt/dbt_packages/
 dbt/logs/
 
-  # Python / Spark
+# Python / Spark
 __pycache__/
 *.pyc
 venv/
 .venv/
 spark-warehouse/
-  
-  # Sistema
+
+# Sistema
 .DS_Store

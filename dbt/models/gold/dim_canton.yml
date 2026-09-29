@@ -1,0 +1,18 @@
+version: 2
+
+models:
+  - name: dim_canton
+    columns:
+      - name: canton
+        tests:
+          - not_null
+
+      - name: provincia
+        tests:
+          - not_null
+      
+      - name: poblacion
+        tests:
+          - not_null
+      
+          

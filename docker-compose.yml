@@ -1,0 +1,86 @@
+name: pset_2
+
+services:
+  kestra-db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: kestra
+      POSTGRES_PASSWORD: kestra
+      POSTGRES_DB: kestra
+    volumes:
+      - kestra-db-data:/var/lib/postgresql/data
+
+  kestra:
+    image: kestra/kestra:v1.3.37
+    user: "root"
+    command: ["server", "standalone"]
+
+    ports:
+      - "8080:8080"
+
+    volumes:
+      - ./data:/app/data
+      - kestra-storage:/app/storage
+
+    environment:
+      ENV_SNOWFLAKE_ACCOUNT: ${SNOWFLAKE_ACCOUNT}
+      ENV_SNOWFLAKE_USER: ${SNOWFLAKE_USER}
+      ENV_SNOWFLAKE_PASSWORD: ${SNOWFLAKE_PASSWORD}
+      ENV_SNOWFLAKE_WAREHOUSE: ${SNOWFLAKE_WAREHOUSE}
+      ENV_SNOWFLAKE_DATABASE: ${SNOWFLAKE_DATABASE}
+      ENV_SNOWFLAKE_SCHEMA: ${SNOWFLAKE_BRONZE_SCHEMA}
+      ENV_SNOWFLAKE_ROLE: ${SNOWFLAKE_ROLE}
+
+      KESTRA_CONFIGURATION: |
+        datasources:
+          postgres:
+            url: jdbc:postgresql://kestra-db:5432/kestra
+            driver-class-name: org.postgresql.Driver
+            username: kestra
+            password: kestra
+
+        kestra:
+          server:
+            basic-auth:
+              enabled: false
+
+          repository:
+            type: postgres
+
+          queue:
+            type: postgres
+
+          storage:
+            type: local
+            local:
+              base-path: /app/storage
+
+          tasks:
+            tmp-dir:
+              path: /tmp/kestra-wd/tmp
+
+          url: http://localhost:8080
+
+    depends_on:
+      - kestra-db
+  spark:
+    image: apache/spark:3.5.9-scala2.12-java17-python3-r-ubuntu
+
+    volumes:
+      - ./spark:/app/spark
+
+    environment:
+      HOME: /tmp
+
+      SNOWFLAKE_ACCOUNT: ${SNOWFLAKE_ACCOUNT}
+      SNOWFLAKE_USER: ${SNOWFLAKE_USER}
+      SNOWFLAKE_PASSWORD: ${SNOWFLAKE_PASSWORD}
+      SNOWFLAKE_WAREHOUSE: ${SNOWFLAKE_WAREHOUSE}
+      SNOWFLAKE_DATABASE: ${SNOWFLAKE_DATABASE}
+      SNOWFLAKE_ROLE: ${SNOWFLAKE_ROLE}
+
+    command: ["tail", "-f", "/dev/null"]
+
+volumes:
+  kestra-db-data:
+  kestra-storage:
