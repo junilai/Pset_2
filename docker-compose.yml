@@ -67,6 +67,8 @@ services:
       ENV_SNOWFLAKE_WAREHOUSE: ${SNOWFLAKE_WAREHOUSE}
       ENV_SNOWFLAKE_DATABASE: ${SNOWFLAKE_DATABASE}
       ENV_SNOWFLAKE_ROLE: ${SNOWFLAKE_ROLE}
+      # Tope de heap para dejar memoria fija al cluster de Spark (Docker tiene 5 GB)
+      JAVA_OPTS: "-Xmx1g"
 
     ports:
       - "8080:8080"
