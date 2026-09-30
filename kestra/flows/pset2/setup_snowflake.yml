@@ -1,0 +1,63 @@
+id: setup_snowflake
+namespace: pset2
+description: Crea los objetos de BRONZE que usa ingesta_ecu911. Se puede re-ejecutar sin perder datos.
+
+tasks:
+  - id: crear_objetos_bronze
+    type: io.kestra.plugin.jdbc.snowflake.Queries
+    url: jdbc:snowflake://{{ envs.snowflake_account }}.snowflakecomputing.com/
+    username: "{{ envs.snowflake_user }}"
+    password: "{{ envs.snowflake_password }}"
+    warehouse: "{{ envs.snowflake_warehouse }}"
+    database: "{{ envs.snowflake_database }}"
+    role: "{{ envs.snowflake_role }}"
+    schema: BRONZE
+    sql: |
+      CREATE OR REPLACE FILE FORMAT BRONZE.FF_CSV_ECU911
+        TYPE = CSV
+        FIELD_DELIMITER = ';'
+        SKIP_HEADER = 1
+        FIELD_OPTIONALLY_ENCLOSED_BY = '"'
+        ENCODING = 'UTF8'
+        ERROR_ON_COLUMN_COUNT_MISMATCH = TRUE
+        COMMENT = 'CSV de la Base de Emergencias ECU 911 (datosabiertos.gob.ec)';
+
+      CREATE STAGE IF NOT EXISTS BRONZE.STG_EMERGENCIAS
+        COMMENT = 'Archivos crudos por periodo: periodo=AAAAMM/';
+
+      CREATE TABLE IF NOT EXISTS BRONZE.EMERGENCIAS (
+        FECHA                 VARCHAR,
+        PROVINCIA             VARCHAR,
+        CANTON                VARCHAR,
+        COD_PARROQUIA         VARCHAR,
+        PARROQUIA             VARCHAR,
+        SERVICIO              VARCHAR,
+        SUBTIPO               VARCHAR,
+        _PERIODO              VARCHAR(6)    NOT NULL,
+        _RESOURCE_ID          VARCHAR       NOT NULL,
+        _SOURCE_LAST_MODIFIED TIMESTAMP_NTZ,
+        _SOURCE_FILE          VARCHAR       NOT NULL,
+        _FILE_ROW_NUMBER      NUMBER        NOT NULL,
+        _LOADED_AT            TIMESTAMP_LTZ NOT NULL
+      )
+      COMMENT = 'Base de Emergencias ECU 911 tal como se publica; todo VARCHAR';
+
+  - id: verificar_objetos
+    type: io.kestra.plugin.jdbc.snowflake.Query
+    url: jdbc:snowflake://{{ envs.snowflake_account }}.snowflakecomputing.com/
+    username: "{{ envs.snowflake_user }}"
+    password: "{{ envs.snowflake_password }}"
+    warehouse: "{{ envs.snowflake_warehouse }}"
+    database: "{{ envs.snowflake_database }}"
+    role: "{{ envs.snowflake_role }}"
+    schema: BRONZE
+    fetchType: FETCH_ONE
+    sql: |
+      SELECT
+        (SELECT COUNT(*) FROM INFORMATION_SCHEMA.FILE_FORMATS
+          WHERE FILE_FORMAT_SCHEMA = 'BRONZE' AND FILE_FORMAT_NAME = 'FF_CSV_ECU911') AS FILE_FORMAT,
+        (SELECT COUNT(*) FROM INFORMATION_SCHEMA.STAGES
+          WHERE STAGE_SCHEMA = 'BRONZE' AND STAGE_NAME = 'STG_EMERGENCIAS') AS STAGE,
+        (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+          WHERE TABLE_SCHEMA = 'BRONZE' AND TABLE_NAME = 'EMERGENCIAS') AS COLUMNAS_TABLA,
+        CURRENT_ROLE() AS ROL
