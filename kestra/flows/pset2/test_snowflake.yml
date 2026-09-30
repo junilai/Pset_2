@@ -1,0 +1,14 @@
+id: test_snowflake
+namespace: pset2
+
+tasks:
+  - id: version
+    type: io.kestra.plugin.jdbc.snowflake.Query
+    url: jdbc:snowflake://{{ envs.snowflake_account }}.snowflakecomputing.com/
+    username: "{{ envs.snowflake_user }}"
+    password: "{{ envs.snowflake_password }}"
+    warehouse: "{{ envs.snowflake_warehouse }}"
+    database: "{{ envs.snowflake_database }}"
+    schema: BRONZE
+    sql: SELECT CURRENT_VERSION() AS version, CURRENT_WAREHOUSE() AS wh, CURRENT_DATABASE() AS db
+    fetchType: FETCH_ONE

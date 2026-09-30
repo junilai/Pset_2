@@ -1,0 +1,65 @@
+id: ingesta_ecu911
+namespace: pset2
+description: Ingesta de un periodo mensual de la Base de Emergencias ECU 911 hacia BRONZE.
+
+concurrency:
+  limit: 1
+
+inputs:
+  - id: periodo
+    type: STRING
+    defaults: "202107"
+    validator: "^\\d{6}$"
+    description: Periodo AAAAMM a cargar.
+
+tasks:
+  - id: consultar_catalogo
+    type: io.kestra.plugin.core.http.Request
+    uri: "https://www.datosabiertos.gob.ec/api/3/action/package_show?id=00c650e7-42a9-4f3c-9f29-45000091f8b3"
+    method: GET
+    retry:
+      type: exponential
+      interval: PT10S
+      maxInterval: PT2M
+      maxAttempts: 4
+
+  - id: seleccionar_recurso
+    type: io.kestra.plugin.scripts.python.Script
+    containerImage: python:3.12-slim
+    inputFiles:
+      catalogo.json: "{{ outputs.consultar_catalogo.body }}"
+    script: |
+      import json
+      import re
+      import sys
+
+      periodo = "{{ inputs.periodo }}"
+
+      with open("catalogo.json", encoding="utf-8") as f:
+          catalogo = json.load(f)
+
+      if not catalogo.get("success"):
+          sys.exit(f"CKAN respondió success=false: {catalogo.get('error')}")
+
+      patron = re.compile(r"_(\d{6})(?!\d)")
+      candidatos = [
+          r for r in catalogo["result"]["resources"]
+          if (m := patron.search(r["name"])) and m.group(1) == periodo
+      ]
+
+      if len(candidatos) != 1:
+          nombres = [r["name"] for r in candidatos]
+          sys.exit(f"Se esperaba 1 recurso para {periodo}, se encontraron {len(candidatos)}: {nombres}")
+
+      recurso = candidatos[0]
+      if recurso.get("mimetype") != "text/csv":
+          sys.exit(f"El recurso {recurso['name']} no es CSV (mimetype={recurso.get('mimetype')!r}); COPY INTO no puede cargarlo")
+
+      salida = {
+          "url": recurso["url"],
+          "resource_id": recurso["id"],
+          "name": recurso["name"],
+          "size": recurso["size"],
+          "last_modified": recurso["last_modified"],
+      }
+      print("::" + json.dumps({"outputs": salida}) + "::")
