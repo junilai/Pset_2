@@ -34,14 +34,17 @@ Snowflake con permisos para usar el warehouse y crear schemas, tablas y vistas.
 
 ## Ejecutar todo desde Kestra
 
-Abre el flujo **`pset2.pipeline`**, pulsa **Execute**, selecciona `source_month`
-y confirma la ejecución. El valor inicial es `2026-08`, último mes del catálogo
-actual. El mes elegido debe existir en `variables.files` de `load_raw.yml`.
+Abre el flujo **`pset2.pipeline`**, pulsa **Execute** y confirma la ejecución.
+Por defecto carga **todos los meses desde julio de 2021 hasta agosto de 2026**,
+inclusive: 62 meses. Puedes ajustar `start_month` y `end_month` para cargar un
+rango menor; para un solo mes, pon el mismo valor en ambos campos. Todos los
+meses del rango deben existir en `variables.files` de `load_raw.yml`.
 
 Las etapas se ejecutan en este orden:
 
 1. Comprobar que los contenedores de dbt y Spark estén disponibles.
-2. Cargar el mes de ECU911 en Bronze mediante `load_raw`.
+2. Generar la lista de meses y cargarlos uno por uno en Bronze mediante
+   `load_raw`. El siguiente mes espera a que termine el anterior.
 3. Cargar el archivo INEC incluido en `data/inec/` mediante `load_raw_inec`.
 4. Ejecutar `dbt build --fail-fast`: carga los seeds y construye Silver y Gold
    con sus tests, respetando las dependencias de `ref()` y `source()`.
@@ -51,17 +54,17 @@ Cada etapa espera a la anterior. Si falla una ingesta, un test de dbt o Spark,
 el flujo termina con error y las etapas posteriores no se ejecutan.
 Los logs se consultan en la ejecución de cada tarea y sus subflujos.
 
-La ingesta reemplaza el mes seleccionado; conserva los otros meses existentes
+La ingesta reemplaza cada mes del rango; conserva los otros meses existentes
 en Bronze. dbt y Spark trabajan con **todo el histórico presente en Bronze**.
 La OBT se escribe con `overwrite`, por lo que volver a ejecutar el flujo
 reemplaza su resultado anterior.
 
-Para una instalación sin histórico, carga primero los meses necesarios desde
-`load_raw` mediante ejecuciones por mes o un backfill de su trigger. El trigger
-mensual queda desactivado en esta configuración porque el punto de entrada es
-el pipeline manual; si utilizas backfill, habilítalo temporalmente y vuelve a
-desactivarlo al terminar. Después ejecuta `pipeline`. Para añadir meses nuevos,
-incorpora sus URLs al catálogo de `load_raw` y vuelve a importar los flujos.
+El mismo flujo sirve para una instalación sin histórico: la ejecución con el
+rango predeterminado carga el histórico completo antes de transformar. No
+necesitas hacer un backfill separado. El trigger mensual de `load_raw` queda
+desactivado porque el punto de entrada es el pipeline manual. Para añadir meses
+nuevos, incorpora sus URLs al catálogo de `load_raw`, ajusta `end_month` y
+vuelve a importar los YAML modificados.
 
 No ejecutes manualmente cargas o builds en paralelo con `pipeline`. El flujo
 principal admite una ejecución a la vez; las siguientes quedan en cola.

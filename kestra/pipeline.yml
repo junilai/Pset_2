@@ -3,11 +3,16 @@ namespace: pset2
 description: Ingesta ECU911 e INEC, dbt Silver/Gold con tests y OBT con Spark.
 
 inputs:
-  - id: source_month
+  - id: start_month
+    type: STRING
+    required: true
+    defaults: "2021-07"
+    description: Primer mes ECU911 a cargar (yyyy-MM), inclusive.
+  - id: end_month
     type: STRING
     required: true
     defaults: "2026-08"
-    description: Mes ECU911 a cargar (yyyy-MM), incluido en el catálogo de load_raw.
+    description: Último mes ECU911 a cargar (yyyy-MM), inclusive.
 
 concurrency:
   limit: 1
@@ -23,14 +28,49 @@ tasks:
       - docker exec pset2-dbt dbt --version
       - docker exec pset2-spark test -f /app/spark/obt.py
 
+  - id: prepare_months
+    type: io.kestra.plugin.scripts.python.Script
+    taskRunner:
+      type: io.kestra.plugin.core.runner.Process
+    env:
+      START_MONTH: "{{ inputs.start_month }}"
+      END_MONTH: "{{ inputs.end_month }}"
+    script: |
+      import json
+      import os
+      import re
+      from datetime import datetime
+
+      start = os.environ["START_MONTH"]
+      end = os.environ["END_MONTH"]
+      for month in (start, end):
+          if not re.fullmatch(r"\d{4}-\d{2}", month):
+              raise ValueError("Los meses deben tener formato yyyy-MM")
+          datetime.strptime(month, "%Y-%m")
+      if start > end:
+          raise ValueError("start_month debe ser menor o igual que end_month")
+
+      year, month = map(int, start.split("-"))
+      months = []
+      while f"{year:04d}-{month:02d}" <= end:
+          months.append(f"{year:04d}-{month:02d}")
+          year, month = (year + 1, 1) if month == 12 else (year, month + 1)
+
+      print("::" + json.dumps({"outputs": {"months": months}}) + "::")
+
   - id: ingest_ecu911
-    type: io.kestra.plugin.core.flow.Subflow
-    namespace: pset2
-    flowId: load_raw
-    inputs:
-      source_month: "{{ inputs.source_month }}"
-    wait: true
-    transmitFailed: true
+    type: io.kestra.plugin.core.flow.ForEach
+    values: "{{ outputs.prepare_months.vars.months }}"
+    concurrencyLimit: 1
+    tasks:
+      - id: ingest_month
+        type: io.kestra.plugin.core.flow.Subflow
+        namespace: pset2
+        flowId: load_raw
+        inputs:
+          source_month: "{{ taskrun.value }}"
+        wait: true
+        transmitFailed: true
 
   - id: ingest_inec
     type: io.kestra.plugin.core.flow.Subflow
