@@ -497,13 +497,12 @@ tasks:
         depth: 1
 
       - id: dbt_build
-        type: io.kestra.plugin.dbt.cli.DbtCLI
+        type: io.kestra.plugin.scripts.shell.Commands
 
         taskRunner:
           type: io.kestra.plugin.scripts.runner.docker.Docker
 
         containerImage: ghcr.io/kestra-io/dbt-snowflake:latest
-        projectDir: dbt
 
         env:
           SNOWFLAKE_ACCOUNT: "{{ envs.snowflake_account }}"
@@ -515,18 +514,20 @@ tasks:
           SNOWFLAKE_ROLE: "{{ envs.snowflake_role }}"
 
         commands:
-          - dbt build --profiles-dir . --no-partial-parse
+          - cd dbt && dbt build --profiles-dir . --no-partial-parse
 
         retry:
           type: constant
           interval: PT20S
           maxAttempts: 2
+          behavior: CREATE_NEW_EXECUTION
 
       - id: spark_build_obt
         type: io.kestra.plugin.scripts.shell.Commands
 
         taskRunner:
           type: io.kestra.plugin.scripts.runner.docker.Docker
+          user: root
 
         containerImage: apache/spark:4.0.0
 
@@ -546,6 +547,7 @@ tasks:
             /opt/spark/bin/spark-submit
             --master "local[*]"
             --driver-memory 4g
+            --conf "spark.jars.ivy=/tmp/.ivy2"
             --packages "net.snowflake:spark-snowflake_2.13:3.2.2-spark_4.0,net.snowflake:snowflake-jdbc:4.0.2"
             spark/build_obt.py
 
@@ -553,6 +555,7 @@ tasks:
           type: constant
           interval: PT20S
           maxAttempts: 2
+          behavior: CREATE_NEW_EXECUTION
 
   - id: validate_obt
     type: io.kestra.plugin.jdbc.snowflake.Query
