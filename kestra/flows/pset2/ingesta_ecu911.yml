@@ -98,11 +98,12 @@ tasks:
           with open("datos.csv", encoding="utf-8-sig", newline="") as f:
               lector = csv.reader(f, delimiter=";", quotechar='"')
               encabezado = next(lector)
-              # Algunos meses (p. ej. 202110) terminan cada linea con un ';' sobrante: se acepta
-              # una octava columna solo si su nombre esta vacio y viene en blanco en todas las filas.
-              con_columna_extra = encabezado == ENCABEZADO + [""]
-              if encabezado != ENCABEZADO and not con_columna_extra:
+              # Algunos meses terminan cada linea con ';' sobrantes (202110 trae 1, 202603 trae 4):
+              # se aceptan columnas extra solo si su nombre esta vacio y vienen en blanco en todas las filas.
+              sobrantes = encabezado[len(ENCABEZADO):]
+              if encabezado[:len(ENCABEZADO)] != ENCABEZADO or any(c != "" for c in sobrantes):
                   sys.exit(f"Encabezado inesperado: {encabezado}")
+              con_columna_extra = len(sobrantes) > 0
               ancho = len(encabezado)
 
               filas = 0
@@ -113,9 +114,9 @@ tasks:
                   if len(fila) != ancho:
                       if len(anchos_invalidos) < 10:
                           anchos_invalidos.append((lector.line_num, len(fila)))
-                  elif con_columna_extra and fila[-1].strip() != "":
+                  elif con_columna_extra and any(c.strip() != "" for c in fila[len(ENCABEZADO):]):
                       if len(extra_con_dato) < 10:
-                          extra_con_dato.append((lector.line_num, fila[-1]))
+                          extra_con_dato.append((lector.line_num, fila[len(ENCABEZADO):]))
       except UnicodeDecodeError as e:
           sys.exit(f"El archivo no es UTF-8 válido: {e}")
 
