@@ -111,7 +111,8 @@ services:
     volumes:
       - ./spark:/app
       # Conserva los conectores Maven entre ejecuciones de spark-submit.
-      - spark-ivy-cache:/root/.ivy2
+      # Spark 4 usa .ivy2.5.2 como ruta predeterminada.
+      - spark-ivy-cache:/root/.ivy2.5.2
 
     environment:
       SNOWFLAKE_ACCOUNT: ${SNOWFLAKE_ACCOUNT}

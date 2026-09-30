@@ -11,7 +11,7 @@ por cantón con horizontes de 3 y 7 días.
 datosabiertos.gob.ec
         │
         ▼
-Kestra ── descarga, retry, backfill e idempotencia mensual
+Kestra ── orquesta ingesta, dbt, Spark y validaciones
         │
         ▼
 Snowflake / BRONZE.EMERGENCIAS_RAW
@@ -79,16 +79,16 @@ Comprobar la configuración de Docker:
 docker compose config --quiet
 ```
 
-## 2. Levantar Kestra y dbt
+## 2. Levantar la infraestructura
 
 ```powershell
-docker compose up -d kestra-db kestra dbt
+docker compose up -d
 docker compose ps
 ```
 
 Kestra estará disponible en <http://localhost:8080>.
 
-## 3. Importar y ejecutar la ingesta
+## 3. Importar y ejecutar el pipeline completo
 
 Importar en Kestra el archivo:
 
@@ -96,9 +96,20 @@ Importar en Kestra el archivo:
 kestra/load_emergencias.yml
 ```
 
-El flow contiene 62 periodos entre julio de 2021 y agosto de 2026. Puede
-ejecutarse manualmente para el backfill inicial y tiene un trigger para revisar
-la fuente el día 15 de cada mes a las 08:00, hora de Ecuador.
+El flow contiene 62 periodos entre julio de 2021 y agosto de 2026. Después de
+importarlo, basta con presionar **Execute**. Esa única ejecución realiza, en
+orden, todo el pipeline:
+
+1. valida y completa la capa Bronze;
+2. clona la rama `juandi` de este repositorio en un directorio temporal;
+3. ejecuta `dbt build`, que construye Silver y Gold y corre todas las pruebas;
+4. ejecuta Spark para generar la malla completa y la OBT;
+5. consulta Snowflake y detiene el flow si encuentra grano duplicado, nulos o
+   claves de fecha inconsistentes.
+
+Las tareas son secuenciales: si una capa falla, ninguna capa posterior se
+ejecuta. El trigger revisa la fuente el día 15 de cada mes a las 08:00, hora de
+Ecuador, y sigue la misma secuencia end-to-end.
 
 La ingesta:
 
@@ -113,7 +124,10 @@ Para incorporar meses posteriores a `202608`, agregar el nuevo periodo, formato
 y URL en `variables.sources` del flow y guardar la nueva revisión en Kestra y
 en el repositorio.
 
-## 4. Construir Silver y Gold con dbt
+## 4. Silver y Gold con dbt
+
+Kestra ejecuta esta etapa automáticamente. Los siguientes comandos quedan como
+herramientas de diagnóstico local y no son necesarios para la operación normal.
 
 Validar la conexión:
 
@@ -161,9 +175,10 @@ con `SUM(INCIDENT_COUNT)`.
 Las tablas de hechos incluyen `DATE_KEY`, `CANTON_KEY` y, cuando corresponde,
 `EMERGENCY_TYPE_KEY`, con pruebas `not_null`, `unique` y `relationships`.
 
-## 5. Construir la OBT con Spark
+## 5. OBT con Spark
 
-Ejecutar Spark después de que dbt finalice correctamente:
+Kestra ejecuta Spark automáticamente después de que `dbt build` termina sin
+errores. Para diagnóstico también se puede lanzar manualmente:
 
 ```powershell
 docker compose run --rm spark /opt/spark/bin/spark-submit `
@@ -203,7 +218,8 @@ Las columnas `ACTUAL_*`, `IS_HIGH_DEMAND_*`, `P90_*`, `BASELINE_*` y
 
 ## 6. Validaciones
 
-Ejecutar todas las pruebas dbt:
+`dbt build` ya ejecuta todas las pruebas definidas. Para repetir solamente las
+pruebas durante un diagnóstico:
 
 ```powershell
 docker compose exec dbt dbt test --profiles-dir .
@@ -216,7 +232,7 @@ El script Spark detiene la ejecución si detecta:
 - valores nulos después de rellenar la malla;
 - diferencias entre el total diario y la suma por servicio.
 
-Consulta opcional en Snowflake:
+Al final, Kestra ejecuta además esta validación sobre la tabla persistida:
 
 ```sql
 select
@@ -230,12 +246,13 @@ from PSET2_DB.GOLD.OBT_CANTON_HIGH_DEMAND_SPARK;
 
 ## 7. Operación habitual
 
-Después de que Kestra cargue un nuevo mes:
+La operación normal consiste en abrir `pset2.load_emergencias` en Kestra y
+presionar **Execute**. No se deben lanzar dbt ni Spark por separado para una
+ejecución de producción.
 
-```powershell
-docker compose exec dbt dbt build --profiles-dir .
-docker compose run --rm spark /opt/spark/bin/spark-submit --master "local[*]" --driver-memory 4g --packages "net.snowflake:spark-snowflake_2.13:3.2.2-spark_4.0,net.snowflake:snowflake-jdbc:4.0.2" /app/build_obt.py
-```
+La ingesta no borra ni duplica meses correctos: compara cada periodo con
+`EMERGENCIAS_CONTROL` y solo reemplaza, dentro de una transacción, los periodos
+ausentes o incompletos. Las ejecuciones concurrentes quedan en cola.
 
 Spark puede mostrar dependencias con nombres Parquet, Avro o Zstandard. Son
 formatos internos del conector para transferir datos a Snowflake; el proyecto

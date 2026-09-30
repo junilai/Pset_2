@@ -2,9 +2,10 @@ id: load_emergencias
 namespace: pset2
 
 description: |
-  Pipeline mensual de emergencias ECU911.
-  Revisa qué meses faltan o están incompletos en Snowflake
-  y carga solamente esos periodos.
+  Pipeline end-to-end de emergencias ECU911.
+  Revisa y carga solamente los meses faltantes o incompletos en Bronze,
+  construye Silver y Gold con dbt, genera la OBT con Spark y valida el
+  resultado final en Snowflake.
 
 # Impide que una ejecución manual y otra programada modifiquen el mismo mes
 # al mismo tiempo. Las ejecuciones adicionales esperan su turno.
@@ -482,6 +483,120 @@ tasks:
             message: |
               El periodo {{ fromJson(parent.taskrun.value).period }}
               ya está completo. No se vuelve a cargar.
+
+  # El repositorio se clona en un directorio de trabajo compartido por las
+  # tareas dbt y Spark. Si Bronze o dbt fallan, Spark nunca se ejecuta.
+  - id: transform_and_build_obt
+    type: io.kestra.plugin.core.flow.WorkingDirectory
+
+    tasks:
+      - id: clone_project
+        type: io.kestra.plugin.git.Clone
+        url: https://github.com/junilai/Pset_2.git
+        branch: juandi
+        depth: 1
+
+      - id: dbt_build
+        type: io.kestra.plugin.dbt.cli.DbtCLI
+
+        taskRunner:
+          type: io.kestra.plugin.scripts.runner.docker.Docker
+
+        containerImage: ghcr.io/kestra-io/dbt-snowflake:latest
+        projectDir: dbt
+
+        env:
+          SNOWFLAKE_ACCOUNT: "{{ envs.snowflake_account }}"
+          SNOWFLAKE_USER: "{{ envs.snowflake_user }}"
+          SNOWFLAKE_PASSWORD: "{{ envs.snowflake_password }}"
+          SNOWFLAKE_WAREHOUSE: "{{ envs.snowflake_warehouse }}"
+          SNOWFLAKE_DATABASE: "{{ envs.snowflake_database }}"
+          SNOWFLAKE_SCHEMA: "{{ envs.snowflake_schema }}"
+          SNOWFLAKE_ROLE: "{{ envs.snowflake_role }}"
+
+        commands:
+          - dbt build --profiles-dir . --no-partial-parse
+
+        retry:
+          type: constant
+          interval: PT20S
+          maxAttempts: 2
+
+      - id: spark_build_obt
+        type: io.kestra.plugin.scripts.shell.Commands
+
+        taskRunner:
+          type: io.kestra.plugin.scripts.runner.docker.Docker
+
+        containerImage: apache/spark:4.0.0
+
+        env:
+          SNOWFLAKE_ACCOUNT: "{{ envs.snowflake_account }}"
+          SNOWFLAKE_USER: "{{ envs.snowflake_user }}"
+          SNOWFLAKE_PASSWORD: "{{ envs.snowflake_password }}"
+          SNOWFLAKE_WAREHOUSE: "{{ envs.snowflake_warehouse }}"
+          SNOWFLAKE_DATABASE: "{{ envs.snowflake_database }}"
+          SNOWFLAKE_SCHEMA: "{{ envs.snowflake_schema }}"
+          SNOWFLAKE_ROLE: "{{ envs.snowflake_role }}"
+          TRAINING_CUTOFF: "2024-12-31"
+          VALIDATION_CUTOFF: "2025-12-31"
+
+        commands:
+          - >-
+            /opt/spark/bin/spark-submit
+            --master "local[*]"
+            --driver-memory 4g
+            --packages "net.snowflake:spark-snowflake_2.13:3.2.2-spark_4.0,net.snowflake:snowflake-jdbc:4.0.2"
+            spark/build_obt.py
+
+        retry:
+          type: constant
+          interval: PT20S
+          maxAttempts: 2
+
+  - id: validate_obt
+    type: io.kestra.plugin.jdbc.snowflake.Query
+
+    url: "jdbc:snowflake://{{ envs.snowflake_account }}.snowflakecomputing.com/?MULTI_STATEMENT_COUNT=0"
+    username: "{{ envs.snowflake_user }}"
+    password: "{{ envs.snowflake_password }}"
+    warehouse: "{{ envs.snowflake_warehouse }}"
+    database: "{{ envs.snowflake_database }}"
+    schema: GOLD
+    role: "{{ envs.snowflake_role }}"
+
+    sql: |
+      SELECT
+          COUNT(*) AS ROW_COUNT,
+          COUNT(DISTINCT TO_VARCHAR(AS_OF_DATE) || '|' || CANTON_KEY)
+              AS GRAIN_COUNT,
+          COUNT_IF(AS_OF_TOTAL_INCIDENTS IS NULL) AS NULL_TOTALS,
+          COUNT_IF(
+              AS_OF_DATE_KEY <>
+              TO_NUMBER(TO_CHAR(AS_OF_DATE, 'YYYYMMDD'))
+          ) AS BAD_DATE_KEYS
+      FROM OBT_CANTON_HIGH_DEMAND_SPARK;
+
+    fetchType: FETCH_ONE
+
+  - id: assert_obt_quality
+    type: io.kestra.plugin.core.execution.Assert
+
+    conditions:
+      - "{{ outputs.validate_obt.row.ROW_COUNT > 0 }}"
+      - "{{ outputs.validate_obt.row.ROW_COUNT == outputs.validate_obt.row.GRAIN_COUNT }}"
+      - "{{ outputs.validate_obt.row.NULL_TOTALS == 0 }}"
+      - "{{ outputs.validate_obt.row.BAD_DATE_KEYS == 0 }}"
+
+    errorMessage: |
+      La OBT no superó las validaciones finales de grano, nulos o claves de fecha.
+
+  - id: pipeline_complete
+    type: io.kestra.plugin.core.log.Log
+
+    message: |
+      Pipeline completado: Bronze, Silver, Gold y OBT validados.
+      Filas OBT: {{ outputs.validate_obt.row.ROW_COUNT }}.
 
 triggers:
   - id: monthly_check
