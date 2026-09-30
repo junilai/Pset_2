@@ -11,7 +11,8 @@ services:
       - kestra-db-data:/var/lib/postgresql/data
 
   kestra:
-    image: kestra/kestra:v1.3.37
+    build: ./docker/kestra
+    image: pset2-kestra:local
     user: "root"
     command: ["server", "standalone"]
 
@@ -21,6 +22,8 @@ services:
     volumes:
       - ./data:/app/data
       - kestra-storage:/app/storage
+      - ./kestra:/app/flows:ro
+      - /var/run/docker.sock:/var/run/docker.sock
 
     environment:
       ENV_SNOWFLAKE_ACCOUNT: ${SNOWFLAKE_ACCOUNT}
@@ -63,8 +66,30 @@ services:
 
     depends_on:
       - kestra-db
+      - dbt
+      - spark
+
+  dbt:
+    build: ./docker/dbt
+    image: pset2-dbt:local
+    container_name: pset2-dbt
+    working_dir: /app/dbt
+    volumes:
+      - ./dbt:/app/dbt
+      - ./dbt/profiles.yml.example:/root/.dbt/profiles.yml:ro
+    environment:
+      SNOWFLAKE_ACCOUNT: ${SNOWFLAKE_ACCOUNT}
+      SNOWFLAKE_USER: ${SNOWFLAKE_USER}
+      DBT_ENV_SECRET_SNOWFLAKE_PASSWORD: ${SNOWFLAKE_PASSWORD}
+      SNOWFLAKE_WAREHOUSE: ${SNOWFLAKE_WAREHOUSE}
+      SNOWFLAKE_DATABASE: ${SNOWFLAKE_DATABASE}
+      SNOWFLAKE_ROLE: ${SNOWFLAKE_ROLE}
+      DBT_SEND_ANONYMOUS_USAGE_STATS: "false"
+    command: ["tail", "-f", "/dev/null"]
+
   spark:
     image: apache/spark:3.5.9-scala2.12-java17-python3-r-ubuntu
+    container_name: pset2-spark
 
     volumes:
       - ./spark:/app/spark

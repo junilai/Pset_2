@@ -1,6 +1,10 @@
 id: load_raw
 namespace: pset2
 
+concurrency:
+  limit: 1
+  behavior: QUEUE
+
 inputs:
   - id: source_month
     type: STRING
@@ -538,6 +542,8 @@ tasks:
 triggers:
   - id: monthly_ingestion
     type: io.kestra.plugin.core.trigger.Schedule
+    # La ejecución completa se inicia manualmente desde pset2.pipeline.
+    disabled: true
     cron: "0 0 5 * *"
     timezone: America/Guayaquil
     recoverMissedSchedules: NONE

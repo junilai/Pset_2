@@ -1,0 +1,58 @@
+id: pipeline
+namespace: pset2
+description: Ingesta ECU911 e INEC, dbt Silver/Gold con tests y OBT con Spark.
+
+inputs:
+  - id: source_month
+    type: STRING
+    required: true
+    defaults: "2026-08"
+    description: Mes ECU911 a cargar (yyyy-MM), incluido en el catálogo de load_raw.
+
+concurrency:
+  limit: 1
+  behavior: QUEUE
+
+tasks:
+  - id: check_runners
+    type: io.kestra.plugin.scripts.shell.Commands
+    taskRunner:
+      type: io.kestra.plugin.core.runner.Process
+    commands:
+      - set -eu
+      - docker exec pset2-dbt dbt --version
+      - docker exec pset2-spark test -f /app/spark/obt.py
+
+  - id: ingest_ecu911
+    type: io.kestra.plugin.core.flow.Subflow
+    namespace: pset2
+    flowId: load_raw
+    inputs:
+      source_month: "{{ inputs.source_month }}"
+    wait: true
+    transmitFailed: true
+
+  - id: ingest_inec
+    type: io.kestra.plugin.core.flow.Subflow
+    namespace: pset2
+    flowId: load_raw_inec
+    wait: true
+    transmitFailed: true
+
+  - id: build_silver_gold
+    type: io.kestra.plugin.scripts.shell.Commands
+    taskRunner:
+      type: io.kestra.plugin.core.runner.Process
+    commands:
+      - docker exec pset2-dbt dbt build --fail-fast
+
+  - id: build_obt
+    type: io.kestra.plugin.scripts.shell.Commands
+    taskRunner:
+      type: io.kestra.plugin.core.runner.Process
+    commands:
+      - >-
+        docker exec pset2-spark /opt/spark/bin/spark-submit
+        --conf spark.jars.ivy=/tmp
+        --packages net.snowflake:spark-snowflake_2.12:3.2.2-spark_3.5,net.snowflake:snowflake-jdbc:4.1.0
+        /app/spark/obt.py

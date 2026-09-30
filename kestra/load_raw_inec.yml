@@ -1,6 +1,10 @@
 id: load_raw_inec
 namespace: pset2
 
+concurrency:
+  limit: 1
+  behavior: QUEUE
+
 tasks:
 
   - id: create_database
@@ -167,4 +171,3 @@ tasks:
       ON_ERROR = 'ABORT_STATEMENT'
       FORCE = TRUE;
   
-
