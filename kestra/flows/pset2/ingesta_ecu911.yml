@@ -115,3 +115,94 @@ tasks:
 
       salida = {"bytes": tamano, "filas": filas, "tiene_bom": tiene_bom}
       print("::" + json.dumps({"outputs": salida}) + "::")
+
+  - id: limpiar_stage
+    type: io.kestra.plugin.jdbc.snowflake.Query
+    url: jdbc:snowflake://{{ envs.snowflake_account }}.snowflakecomputing.com/
+    username: "{{ envs.snowflake_user }}"
+    password: "{{ envs.snowflake_password }}"
+    warehouse: "{{ envs.snowflake_warehouse }}"
+    database: "{{ envs.snowflake_database }}"
+    role: "{{ envs.snowflake_role }}"
+    schema: BRONZE
+    sql: REMOVE @BRONZE.STG_EMERGENCIAS/periodo={{ inputs.periodo }}/
+
+  - id: subir_a_stage
+    type: io.kestra.plugin.jdbc.snowflake.Upload
+    url: jdbc:snowflake://{{ envs.snowflake_account }}.snowflakecomputing.com/
+    username: "{{ envs.snowflake_user }}"
+    password: "{{ envs.snowflake_password }}"
+    warehouse: "{{ envs.snowflake_warehouse }}"
+    database: "{{ envs.snowflake_database }}"
+    role: "{{ envs.snowflake_role }}"
+    schema: BRONZE
+    from: "{{ outputs.descargar_archivo.uri }}"
+    stageName: "@BRONZE.STG_EMERGENCIAS"
+    prefix: "periodo={{ inputs.periodo }}"
+    fileName: "emergencias_{{ inputs.periodo }}.csv"
+    compress: true
+
+  - id: cargar_bronze
+    type: io.kestra.plugin.jdbc.snowflake.Queries
+    url: jdbc:snowflake://{{ envs.snowflake_account }}.snowflakecomputing.com/
+    username: "{{ envs.snowflake_user }}"
+    password: "{{ envs.snowflake_password }}"
+    warehouse: "{{ envs.snowflake_warehouse }}"
+    database: "{{ envs.snowflake_database }}"
+    role: "{{ envs.snowflake_role }}"
+    schema: BRONZE
+    transaction: true
+    sql: |
+      DELETE FROM BRONZE.EMERGENCIAS WHERE _PERIODO = '{{ inputs.periodo }}';
+
+      COPY INTO BRONZE.EMERGENCIAS (
+        FECHA, PROVINCIA, CANTON, COD_PARROQUIA, PARROQUIA, SERVICIO, SUBTIPO,
+        _PERIODO, _RESOURCE_ID, _SOURCE_LAST_MODIFIED, _SOURCE_FILE, _FILE_ROW_NUMBER, _LOADED_AT
+      )
+      FROM (
+        SELECT
+          $1, $2, $3, $4, $5, $6, $7,
+          '{{ inputs.periodo }}',
+          '{{ outputs.seleccionar_recurso.vars.resource_id }}',
+          TO_TIMESTAMP_NTZ('{{ outputs.seleccionar_recurso.vars.last_modified }}', 'YYYY-MM-DD"T"HH24:MI:SS.FF'),
+          METADATA$FILENAME,
+          METADATA$FILE_ROW_NUMBER,
+          CURRENT_TIMESTAMP()
+        FROM @BRONZE.STG_EMERGENCIAS/periodo={{ inputs.periodo }}/
+      )
+      FILE_FORMAT = (FORMAT_NAME = 'BRONZE.FF_CSV_ECU911')
+      ON_ERROR = ABORT_STATEMENT
+      FORCE = TRUE;
+
+  - id: verificar_carga
+    type: io.kestra.plugin.jdbc.snowflake.Query
+    url: jdbc:snowflake://{{ envs.snowflake_account }}.snowflakecomputing.com/
+    username: "{{ envs.snowflake_user }}"
+    password: "{{ envs.snowflake_password }}"
+    warehouse: "{{ envs.snowflake_warehouse }}"
+    database: "{{ envs.snowflake_database }}"
+    role: "{{ envs.snowflake_role }}"
+    schema: BRONZE
+    fetchType: FETCH_ONE
+    sql: |
+      SELECT
+        COUNT(*)                                AS FILAS,
+        COUNT(DISTINCT _FILE_ROW_NUMBER)        AS FILAS_UNICAS,
+        COUNT(DISTINCT _SOURCE_FILE)            AS ARCHIVOS,
+        COUNT_IF(FECHA = 'Fecha')               AS ENCABEZADOS,
+        COUNT_IF(ENDSWITH(SUBTIPO, CHR(13)))    AS CON_RETORNO_CARRO,
+        MIN(_FILE_ROW_NUMBER)                   AS PRIMERA_FILA,
+        MAX(_FILE_ROW_NUMBER)                   AS ULTIMA_FILA,
+        TO_VARCHAR(MAX(_LOADED_AT))             AS CARGADO_EN
+      FROM BRONZE.EMERGENCIAS
+      WHERE _PERIODO = '{{ inputs.periodo }}'
+
+  - id: conciliar
+    type: io.kestra.plugin.core.execution.Assert
+    errorMessage: "La carga de {{ inputs.periodo }} no concilia con el archivo validado ({{ outputs.validar_archivo.vars.filas }} filas)"
+    conditions:
+      - "{{ outputs.verificar_carga.row.FILAS == outputs.validar_archivo.vars.filas }}"
+      - "{{ outputs.verificar_carga.row.FILAS_UNICAS == outputs.validar_archivo.vars.filas }}"
+      - "{{ outputs.verificar_carga.row.ARCHIVOS == 1 }}"
+      - "{{ outputs.verificar_carga.row.ENCABEZADOS == 0 }}"
+      - "{{ outputs.verificar_carga.row.CON_RETORNO_CARRO == 0 }}"
