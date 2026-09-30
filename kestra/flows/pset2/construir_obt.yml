@@ -1,0 +1,80 @@
+id: construir_obt
+namespace: pset2
+description: Construye GOLD.OBT_EMERGENCIAS en el cluster de Spark desnormalizando el modelo estrella de GOLD, la valida y la publica.
+
+concurrency:
+  limit: 1
+
+tasks:
+  - id: spark_submit
+    type: io.kestra.plugin.scripts.shell.Commands
+    containerImage: pset2-spark:4.1.3
+    timeout: PT30M
+    taskRunner:
+      type: io.kestra.plugin.scripts.runner.docker.Docker
+      # Imagen construida localmente con: docker compose build spark-master
+      pullPolicy: NEVER
+      # En la red del compose para alcanzar spark-master y para que los executors alcancen al driver
+      networkMode: pset2_repo_default
+      volumes:
+        - "{{ envs.spark_apps_dir }}:/opt/spark-apps:ro"
+    env:
+      SNOWFLAKE_ACCOUNT: "{{ envs.snowflake_account }}"
+      SNOWFLAKE_USER: "{{ envs.snowflake_user }}"
+      SNOWFLAKE_PASSWORD: "{{ envs.snowflake_password }}"
+      SNOWFLAKE_WAREHOUSE: "{{ envs.snowflake_warehouse }}"
+      SNOWFLAKE_DATABASE: "{{ envs.snowflake_database }}"
+      SNOWFLAKE_ROLE: "{{ envs.snowflake_role }}"
+    commands:
+      # El driver corre en este contenedor; los executors en spark-worker (2 cores, 1 GB)
+      - >-
+        /opt/spark/bin/spark-submit
+        --master spark://spark-master:7077
+        --conf spark.driver.host=$(hostname -i)
+        --conf spark.driver.bindAddress=0.0.0.0
+        --conf spark.driver.memory=512m
+        --conf spark.executor.memory=900m
+        /opt/spark-apps/obt_emergencias.py
+
+  - id: verificar_obt
+    type: io.kestra.plugin.jdbc.snowflake.Query
+    url: jdbc:snowflake://{{ envs.snowflake_account }}.snowflakecomputing.com/
+    username: "{{ envs.snowflake_user }}"
+    password: "{{ envs.snowflake_password }}"
+    warehouse: "{{ envs.snowflake_warehouse }}"
+    database: "{{ envs.snowflake_database }}"
+    role: "{{ envs.snowflake_role }}"
+    schema: GOLD
+    fetchType: FETCH_ONE
+    sql: |
+      SELECT
+        (SELECT COUNT(*) FROM GOLD.OBT_EMERGENCIAS_NUEVA)                  AS FILAS_OBT,
+        (SELECT COUNT(*) FROM GOLD.FCT_EMERGENCIAS)                        AS FILAS_FCT,
+        (SELECT COUNT(DISTINCT ID_EMERGENCIA) FROM GOLD.OBT_EMERGENCIAS_NUEVA) AS IDS_OBT,
+        (SELECT COUNT_IF(FECHA IS NULL OR PROVINCIA IS NULL OR SERVICIO IS NULL OR SUBTIPO IS NULL)
+           FROM GOLD.OBT_EMERGENCIAS_NUEVA)                                AS FILAS_SIN_DIMENSION,
+        (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+          WHERE TABLE_SCHEMA = 'GOLD' AND TABLE_NAME = 'OBT_EMERGENCIAS_NUEVA') AS COLUMNAS
+
+  - id: conciliar
+    type: io.kestra.plugin.core.execution.Assert
+    errorMessage: "La OBT no concilia con GOLD.FCT_EMERGENCIAS; GOLD.OBT_EMERGENCIAS no se modifico"
+    conditions:
+      - "{{ outputs.verificar_obt.row.FILAS_OBT == outputs.verificar_obt.row.FILAS_FCT }}"
+      - "{{ outputs.verificar_obt.row.IDS_OBT == outputs.verificar_obt.row.FILAS_FCT }}"
+      - "{{ outputs.verificar_obt.row.FILAS_SIN_DIMENSION == 0 }}"
+      - "{{ outputs.verificar_obt.row.COLUMNAS == 24 }}"
+
+  - id: publicar
+    type: io.kestra.plugin.jdbc.snowflake.Queries
+    url: jdbc:snowflake://{{ envs.snowflake_account }}.snowflakecomputing.com/
+    username: "{{ envs.snowflake_user }}"
+    password: "{{ envs.snowflake_password }}"
+    warehouse: "{{ envs.snowflake_warehouse }}"
+    database: "{{ envs.snowflake_database }}"
+    role: "{{ envs.snowflake_role }}"
+    schema: GOLD
+    sql: |
+      -- Clon sin copia de datos: la tabla publicada solo cambia si la nueva paso la conciliacion
+      CREATE OR REPLACE TABLE GOLD.OBT_EMERGENCIAS CLONE GOLD.OBT_EMERGENCIAS_NUEVA;
+      DROP TABLE GOLD.OBT_EMERGENCIAS_NUEVA;
