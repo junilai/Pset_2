@@ -1,0 +1,98 @@
+id: ecu911_ingest
+namespace: usfq.pset2
+description: |
+  Ingesta mensual de la Base de Emergencias del ECU 911 (Datos Abiertos Ecuador) a Snowflake BRONZE.
+  Un mes por ejecución:
+    1) resolve_resource: busca la URL del CSV del mes en la API del portal (las URLs no son predecibles).
+    2) download: descarga el CSV (retries con backoff exponencial).
+    3) load_bronze: transcodifica a UTF-8, PUT + DELETE/COPY del período en una transacción (idempotente)
+       y valida filas cargadas == filas del archivo.
+    4) transform: opcionalmente ejecuta ecu911_transform (dbt + Spark).
+  Período: input `period` (YYYY-MM). Si se omite, el mes anterior a la fecha del trigger
+  (o de la ejecución manual). Por eso el backfill nativo de Kestra sobre el trigger `monthly`
+  genera una ejecución por mes histórico.
+labels:
+  proyecto: ecu911
+  capa: bronze
+
+inputs:
+  - id: period
+    type: STRING
+    required: false
+    description: Mes a cargar (YYYY-MM). Vacío = mes anterior a la fecha del trigger/ejecución.
+  - id: run_transform
+    type: BOOL
+    defaults: true
+    description: Ejecutar dbt + Spark al terminar (false durante el backfill masivo).
+
+variables:
+  period: "{{ inputs.period ?? ((trigger.date ?? execution.startDate) | dateAdd(-1, 'MONTHS') | date('yyyy-MM')) }}"
+
+tasks:
+  - id: resolve_resource
+    type: io.kestra.plugin.scripts.shell.Commands
+    taskRunner:
+      type: io.kestra.plugin.core.runner.Process
+    retry:
+      type: constant
+      interval: PT1M
+      maxAttempts: 3
+    commands:
+      - $PIPELINE_PY /pset2/kestra/scripts/resolve_resource.py --period {{ render(vars.period) }}
+
+  - id: download
+    type: io.kestra.plugin.core.http.Download
+    uri: "{{ outputs.resolve_resource.vars.url }}"
+    timeout: PT15M
+    retry:
+      type: exponential
+      interval: PT30S
+      maxInterval: PT5M
+      maxAttempts: 4
+
+  - id: load_bronze
+    type: io.kestra.plugin.scripts.shell.Commands
+    taskRunner:
+      type: io.kestra.plugin.core.runner.Process
+    timeout: PT30M
+    retry:
+      type: constant
+      interval: PT1M
+      maxAttempts: 3
+    inputFiles:
+      source.csv: "{{ outputs.download.uri }}"
+    commands:
+      - >-
+        cd /pset2/kestra/scripts && $PIPELINE_PY load_bronze.py
+        --period {{ render(vars.period) }}
+        --file {{ workingDir }}/source.csv
+        --url "{{ outputs.resolve_resource.vars.url }}"
+        --resource-name "{{ outputs.resolve_resource.vars.resource_name }}"
+        --ingestion-id {{ execution.id }}
+
+  - id: transform
+    type: io.kestra.plugin.core.flow.If
+    condition: "{{ inputs.run_transform }}"
+    then:
+      - id: run_transform_flow
+        type: io.kestra.plugin.core.flow.Subflow
+        namespace: usfq.pset2
+        flowId: ecu911_transform
+        wait: true
+        transmitFailed: true
+
+errors:
+  - id: log_failure
+    type: io.kestra.plugin.core.log.Log
+    level: ERROR
+    message: >-
+      Falló la ingesta ECU 911 del período {{ render(vars.period) }} (ejecución {{ execution.id }}).
+      Los reintentos se agotaron; revisar los logs de la tarea fallida. Bronze no quedó a medias:
+      la carga del período es transaccional.
+
+triggers:
+  # El portal publica cada mes con ~1 mes de retraso. El día 20 se carga el mes anterior.
+  - id: monthly
+    type: io.kestra.plugin.core.trigger.Schedule
+    cron: "0 7 20 * *"
+    timezone: America/Guayaquil

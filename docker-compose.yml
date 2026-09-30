@@ -1,0 +1,123 @@
+name: pset2-ecu911
+
+# Tubería ELT ECU 911:
+#   Fuente (datosabiertos.gob.ec) -> Kestra -> Bronze -> dbt -> Silver -> dbt -> Gold -> Spark -> OBT
+#
+#   docker compose up -d --build        # Kestra (http://localhost:8080) + Spark (UI http://localhost:8081)
+#   docker compose run --rm cli         # tubería completa por CLI, sin la UI de Kestra
+
+x-snowflake-env: &snowflake-env
+  SNOWFLAKE_ACCOUNT: ${SNOWFLAKE_ACCOUNT}
+  SNOWFLAKE_USER: ${SNOWFLAKE_USER}
+  SNOWFLAKE_ROLE: ${SNOWFLAKE_ROLE}
+  SNOWFLAKE_WAREHOUSE: ${SNOWFLAKE_WAREHOUSE}
+  SNOWFLAKE_DATABASE: ${SNOWFLAKE_DATABASE}
+  SNOWFLAKE_PRIVATE_KEY_PATH: /pset2/keys/rsa_key.p8
+  START_PERIOD: ${START_PERIOD}
+  END_PERIOD: ${END_PERIOD}
+  DBT_PROFILES_DIR: /pset2/dbt
+  DBT_PROJECT_DIR: /pset2/dbt
+  SPARK_MASTER_URL: spark://spark-master:7077
+
+services:
+
+  # Base interna de Kestra (flows, ejecuciones, logs). No guarda datos del proyecto.
+  kestra-db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ${KESTRA_DB_USER}
+      POSTGRES_PASSWORD: ${KESTRA_DB_PASSWORD}
+      POSTGRES_DB: kestra
+    volumes:
+      - kestra-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${KESTRA_DB_USER} -d kestra"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Orquestador: ingesta (Bronze), dbt (Silver/Gold) y job de Spark (OBT)
+  kestra:
+    build: .
+    image: pset2-kestra-pipeline:latest
+    user: "root"
+    command: ["server", "standalone"]
+    ports:
+      - "8080:8080"
+    environment:
+      <<: *snowflake-env
+      KESTRA_CONFIGURATION: |
+        datasources:
+          postgres:
+            url: jdbc:postgresql://kestra-db:5432/kestra
+            driver-class-name: org.postgresql.Driver
+            username: ${KESTRA_DB_USER}
+            password: ${KESTRA_DB_PASSWORD}
+        kestra:
+          tutorial-flows:
+            enabled: false
+          server:
+            basic-auth:
+              enabled: false
+          repository:
+            type: postgres
+          queue:
+            type: postgres
+          storage:
+            type: local
+            local:
+              base-path: /app/storage
+          tasks:
+            tmp-dir:
+              path: /tmp/kestra-wd/tmp
+        url: http://localhost:8080
+        # Sincroniza kestra/flows/ con Kestra (archivos <tenant>_<namespace>_<id>.yml)
+        micronaut:
+          io:
+            watch:
+              enabled: true
+              paths:
+                - /pset2/kestra/flows
+    volumes:
+      - .:/pset2
+      - kestra-storage:/app/storage
+    depends_on:
+      kestra-db:
+        condition: service_healthy
+      spark-master:
+        condition: service_started
+
+  spark-master:
+    image: apache/spark:3.5.3
+    command: /opt/spark/bin/spark-class org.apache.spark.deploy.master.Master
+    ports:
+      - "8081:8080"   # UI de Spark (8080 lo usa Kestra)
+      - "7077:7077"
+
+  spark-worker:
+    image: apache/spark:3.5.3
+    command: /opt/spark/bin/spark-class org.apache.spark.deploy.worker.Worker spark://spark-master:7077
+    environment:
+      SPARK_WORKER_CORES: 2
+      SPARK_WORKER_MEMORY: 2G
+    depends_on:
+      - spark-master
+
+  # Misma imagen, para correr la tubería completa sin la UI de Kestra
+  cli:
+    image: pset2-kestra-pipeline:latest
+    build: .
+    user: "root"
+    entrypoint: ["bash", "/pset2/scripts/run_pipeline.sh"]
+    environment:
+      <<: *snowflake-env
+    volumes:
+      - .:/pset2
+    depends_on:
+      - spark-master
+      - spark-worker
+    profiles: ["cli"]
+
+volumes:
+  kestra-db-data:
+  kestra-storage:

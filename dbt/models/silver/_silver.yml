@@ -1,0 +1,54 @@
+version: 2
+
+models:
+  - name: slv_emergencias
+    description: >
+      Emergencias limpias. Grano: una emergencia coordinada (una fila del CSV original
+      que pasó las reglas de validez). Fecha convertida a DATE, textos estandarizados,
+      servicio alineado al catálogo oficial y códigos DPA (parroquia, cantón, provincia)
+      validados. No se deduplica: filas idénticas son emergencias distintas.
+    columns:
+      - name: emergencia_key
+        description: "PK: md5(período + número de fila en el archivo). La fuente no trae ID."
+        data_tests: [unique, not_null]
+      - name: fecha
+        description: "Fecha de la alerta (la fuente no trae hora)."
+        data_tests: [not_null]
+      - name: parroquia_codigo
+        description: "Código DPA INEC de la parroquia (6 dígitos)."
+        data_tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              arguments: {expression: "regexp_like(parroquia_codigo, '^[0-9]{6}$')"}
+      - name: canton_codigo
+        description: "Código DPA del cantón = 4 primeros dígitos de la parroquia."
+        data_tests: [not_null]
+      - name: servicio_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments: {to: ref('servicios'), field: servicio_id}
+      - name: subtipo
+        data_tests: [not_null]
+      - name: source_period
+        data_tests: [not_null]
+
+  - name: slv_emergencias_rechazadas
+    description: "Cuarentena: filas de bronze que no pasaron las reglas de validez, con su motivo."
+    columns:
+      - name: rejection_reason
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [fecha_invalida, fecha_fuera_de_periodo, ubicacion_faltante]
+
+  - name: slv_cobertura_mensual
+    description: >
+      Control de completitud: volumen mensual total y por servicio comparado con la mediana
+      histórica. Marca los meses con cobertura sospechosa (publicación incompleta).
+    columns:
+      - name: source_period
+        data_tests: [unique, not_null]
+      - name: cobertura_sospechosa
+        data_tests: [not_null]

@@ -1,0 +1,29 @@
+version: 2
+
+sources:
+  - name: bronze
+    description: "Capa Bronze cargada por Kestra (ecu911_ingest): copia fiel de los CSV mensuales del ECU 911."
+    database: "{{ env_var('SNOWFLAKE_DATABASE') }}"
+    schema: BRONZE
+    tables:
+      - name: emergencias
+        identifier: EMERGENCIAS
+        description: "Una fila por fila del CSV original. Todas las columnas de la fuente como texto + metadata de linaje."
+        columns:
+          - name: _source_period
+            description: "Mes al que corresponde el archivo."
+            data_tests: [not_null]
+          - name: _source_row_number
+            description: "Número de fila dentro del archivo (METADATA$FILE_ROW_NUMBER)."
+            data_tests: [not_null]
+          - name: _loaded_at
+            description: "Fecha y hora de carga en Snowflake."
+            data_tests: [not_null]
+          - name: _source_encoding
+            description: "Codificación detectada del archivo original (utf-8-sig o cp1252)."
+            data_tests:
+              - accepted_values:
+                  arguments: {values: ['utf-8-sig', 'cp1252', 'latin-1']}
+      - name: load_audit
+        identifier: LOAD_AUDIT
+        description: "Bitácora de cargas de Kestra: filas del archivo vs filas cargadas por período."

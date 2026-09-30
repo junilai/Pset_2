@@ -1,0 +1,7 @@
+# Los scripts corren dentro de contenedores Linux: siempre LF
+*.sh   text eol=lf
+*.py   text eol=lf
+*.yml  text eol=lf
+*.sql  text eol=lf
+*.csv  text eol=lf
+Dockerfile text eol=lf

@@ -1,0 +1,43 @@
+name: ecu911
+version: "1.0.0"
+config-version: 2
+profile: ecu911
+
+model-paths: ["models"]
+seed-paths: ["seeds"]
+test-paths: ["tests"]
+macro-paths: ["macros"]
+clean-targets: ["target", "dbt_packages"]
+
+# El schema OBT lo llena Spark; dbt solo garantiza que exista.
+on-run-start:
+  - "create schema if not exists {{ target.database }}.OBT"
+
+vars:
+  # Rango de la dimensión fecha
+  dim_fecha_inicio: "2023-01-01"
+  dim_fecha_fin: "2026-12-31"
+  # Regla de cobertura mensual (ver slv_cobertura_mensual y README)
+  cobertura_ratio_total_min: 0.8
+  cobertura_ratio_servicio_min: 0.3
+  cobertura_servicio_mediana_min: 1000
+
+models:
+  ecu911:
+    silver:
+      +schema: silver
+      +materialized: incremental
+    gold:
+      +schema: gold
+      +materialized: table
+
+seeds:
+  ecu911:
+    +schema: reference
+    servicios:
+      +column_types: {servicio_id: integer, servicio_nombre: varchar, servicio_clave: varchar, servicio_slug: varchar}
+    poblacion_cantonal:
+      # canton_codigo como texto: conserva el cero inicial del código DPA (0101)
+      +column_types: {canton_codigo: varchar, canton_nombre_inec: varchar, anio: integer, poblacion: integer}
+    feriados_ecuador:
+      +column_types: {fecha: date, nombre_feriado: varchar}

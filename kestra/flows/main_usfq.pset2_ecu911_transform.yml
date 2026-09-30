@@ -1,0 +1,55 @@
+id: ecu911_transform
+namespace: usfq.pset2
+description: |
+  Transformación: dbt (Bronze -> Silver -> Gold, con tests) y Spark (Gold -> OBT cantón-día).
+  Se ejecuta al final de ecu911_ingest (mensual) o de ecu911_backfill.
+labels:
+  proyecto: ecu911
+  capa: silver-gold-obt
+
+# Nunca dos transformaciones a la vez: si llegan juntas, esperan en cola.
+concurrency:
+  limit: 1
+  behavior: QUEUE
+
+tasks:
+  - id: dbt_deps
+    type: io.kestra.plugin.scripts.shell.Commands
+    taskRunner:
+      type: io.kestra.plugin.core.runner.Process
+    retry:
+      type: constant
+      interval: PT30S
+      maxAttempts: 3
+    commands:
+      - cd /pset2/dbt && $DBT_BIN deps
+
+  - id: dbt_build
+    type: io.kestra.plugin.scripts.shell.Commands
+    taskRunner:
+      type: io.kestra.plugin.core.runner.Process
+    timeout: PT1H
+    retry:
+      type: constant
+      interval: PT1M
+      maxAttempts: 2
+    commands:
+      - cd /pset2/dbt && $DBT_BIN build --fail-fast
+
+  - id: spark_obt
+    type: io.kestra.plugin.scripts.shell.Commands
+    taskRunner:
+      type: io.kestra.plugin.core.runner.Process
+    timeout: PT30M
+    retry:
+      type: constant
+      interval: PT1M
+      maxAttempts: 2
+    commands:
+      - bash /pset2/spark/submit_obt.sh
+
+errors:
+  - id: log_failure
+    type: io.kestra.plugin.core.log.Log
+    level: ERROR
+    message: "Falló la transformación ECU 911 (ejecución {{ execution.id }}). Revisar dbt_build o spark_obt."

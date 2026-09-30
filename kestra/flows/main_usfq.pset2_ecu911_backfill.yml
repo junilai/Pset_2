@@ -1,0 +1,56 @@
+id: ecu911_backfill
+namespace: usfq.pset2
+description: |
+  Backfill histórico: ejecuta ecu911_ingest para cada mes del rango (en paralelo, sin
+  transformar) y, al final, una sola vez ecu911_transform (dbt + Spark).
+  Es idempotente: re-ejecutarlo reemplaza cada mes sin duplicar.
+  Alternativa nativa: backfill del trigger `monthly` de ecu911_ingest desde la UI.
+labels:
+  proyecto: ecu911
+  tipo: backfill
+
+inputs:
+  - id: start_period
+    type: STRING
+    defaults: "2023-01"
+  - id: end_period
+    type: STRING
+    defaults: "2026-03"
+
+tasks:
+  - id: months
+    type: io.kestra.plugin.scripts.shell.Commands
+    taskRunner:
+      type: io.kestra.plugin.core.runner.Process
+    commands:
+      - $PIPELINE_PY /pset2/kestra/scripts/month_range.py {{ inputs.start_period }} {{ inputs.end_period }}
+
+  - id: ingest_months
+    type: io.kestra.plugin.core.flow.ForEach
+    values: "{{ outputs.months.vars.months }}"
+    concurrencyLimit: 4
+    tasks:
+      - id: ingest_month
+        type: io.kestra.plugin.core.flow.Subflow
+        namespace: usfq.pset2
+        flowId: ecu911_ingest
+        inputs:
+          period: "{{ taskrun.value }}"
+          run_transform: false
+        wait: true
+        transmitFailed: true
+
+  - id: transform
+    type: io.kestra.plugin.core.flow.Subflow
+    namespace: usfq.pset2
+    flowId: ecu911_transform
+    wait: true
+    transmitFailed: true
+
+errors:
+  - id: log_failure
+    type: io.kestra.plugin.core.log.Log
+    level: ERROR
+    message: >-
+      Falló el backfill {{ inputs.start_period }}..{{ inputs.end_period }} (ejecución {{ execution.id }}).
+      Los meses ya cargados quedan íntegros; se puede re-ejecutar sin duplicar.

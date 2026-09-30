@@ -6,23 +6,33 @@
 *.p8
 *.pem
 *.key
+keys/
 
-  # Datos
+# Excepción: dbt/profiles.yml no contiene credenciales (lee todo con env_var)
+!dbt/profiles.yml
+
+# Datos
 data/raw/
 *.csv
 !data/samples/*.csv
+# Excepción: seeds de dbt (catálogos pequeños y versionados: servicios, población INEC, feriados)
+!dbt/seeds/*.csv
 
-  # dbt
+# dbt
 dbt/target/
 dbt/dbt_packages/
 dbt/logs/
+dbt/.user.yml
 
-  # Python / Spark
+# Python / Spark
 __pycache__/
 *.pyc
 venv/
 .venv/
 spark-warehouse/
-  
-  # Sistema
+
+# Kestra (flows de tutorial que Kestra escribe al sincronizar la carpeta)
+kestra/flows/main_tutorial_*.yml
+
+# Sistema
 .DS_Store

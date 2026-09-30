@@ -1,0 +1,5 @@
+dbt-core==1.10.*
+dbt-snowflake==1.10.*
+snowflake-connector-python>=3.12
+requests>=2.32
+uv>=0.8

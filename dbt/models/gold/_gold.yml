@@ -1,0 +1,104 @@
+version: 2
+
+models:
+  - name: fct_emergencias
+    description: >
+      Tabla de hechos. Grano: una emergencia coordinada por el ECU 911 (una fila válida
+      del CSV mensual). Medida aditiva: cantidad (= 1). FKs a fecha, parroquia, cantón,
+      servicio y tipo de emergencia.
+    columns:
+      - name: emergencia_key
+        description: "PK del hecho."
+        data_tests: [unique, not_null]
+      - name: fecha_key
+        description: "FK a dim_fecha."
+        data_tests:
+          - not_null
+          - relationships:
+              arguments: {to: ref('dim_fecha'), field: fecha_key}
+      - name: parroquia_codigo
+        description: "FK a dim_parroquia."
+        data_tests:
+          - not_null
+          - relationships:
+              arguments: {to: ref('dim_parroquia'), field: parroquia_codigo}
+      - name: canton_codigo
+        description: "FK a dim_canton (unidad de predicción del proyecto)."
+        data_tests:
+          - not_null
+          - relationships:
+              arguments: {to: ref('dim_canton'), field: canton_codigo}
+      - name: servicio_id
+        description: "FK a dim_servicio."
+        data_tests:
+          - not_null
+          - relationships:
+              arguments: {to: ref('dim_servicio'), field: servicio_id}
+      - name: tipo_emergencia_key
+        description: "FK a dim_tipo_emergencia."
+        data_tests:
+          - not_null
+          - relationships:
+              arguments: {to: ref('dim_tipo_emergencia'), field: tipo_emergencia_key}
+      - name: cantidad
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments: {values: [1], quote: false}
+
+  - name: dim_fecha
+    description: "Calendario 2023-2026. Grano: un día. Incluye feriados y cobertura del mes."
+    columns:
+      - name: fecha_key
+        description: "PK (YYYYMMDD)."
+        data_tests: [unique, not_null]
+      - name: fecha
+        data_tests: [unique, not_null]
+
+  - name: dim_canton
+    description: "Cantones (DPA INEC) con población proyectada 2022-2026. Unidad de predicción."
+    columns:
+      - name: canton_codigo
+        description: "PK (4 dígitos DPA)."
+        data_tests:
+          - unique
+          - not_null
+          - dbt_utils.expression_is_true:
+              arguments: {expression: "regexp_like(canton_codigo, '^[0-9]{4}$')"}
+      - name: canton_nombre
+        data_tests: [not_null]
+
+  - name: dim_parroquia
+    description: "Parroquias observadas en los datos, con su cantón y provincia."
+    columns:
+      - name: parroquia_codigo
+        description: "PK (6 dígitos DPA)."
+        data_tests: [unique, not_null]
+      - name: canton_codigo
+        data_tests:
+          - not_null
+          - relationships:
+              arguments: {to: ref('dim_canton'), field: canton_codigo}
+
+  - name: dim_servicio
+    description: "Servicios del ECU 911 según su diccionario de datos."
+    columns:
+      - name: servicio_id
+        description: "PK (0 = no especificado)."
+        data_tests: [unique, not_null]
+      - name: servicio_nombre
+        data_tests: [unique, not_null]
+
+  - name: dim_tipo_emergencia
+    description: "Combinación servicio + subtipo asignado por el operador."
+    columns:
+      - name: tipo_emergencia_key
+        description: "PK: md5(servicio_id | subtipo)."
+        data_tests: [unique, not_null]
+      - name: servicio_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments: {to: ref('dim_servicio'), field: servicio_id}
+      - name: subtipo
+        data_tests: [not_null]

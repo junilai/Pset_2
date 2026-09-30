@@ -1,0 +1,9 @@
+servicio_id,servicio_nombre,servicio_clave,servicio_slug
+0,No especificado,NO ESPECIFICADO,no_especificado
+1,Seguridad Ciudadana,SEGURIDAD CIUDADANA,seguridad_ciudadana
+2,Tránsito y Movilidad,TRANSITO Y MOVILIDAD,transito_movilidad
+3,Gestión Sanitaria,GESTION SANITARIA,gestion_sanitaria
+4,Gestión de Siniestros,GESTION DE SINIESTROS,gestion_siniestros
+5,Servicio Militar,SERVICIO MILITAR,servicio_militar
+6,Gestión de Riesgos,GESTION DE RIESGOS,gestion_riesgos
+7,Servicios Municipales,SERVICIOS MUNICIPALES,servicios_municipales
