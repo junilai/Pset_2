@@ -1,0 +1,158 @@
+id: perfilar_bronze
+namespace: pset2
+description: Perfila la calidad de un periodo de BRONZE.EMERGENCIAS y guarda las metricas en BRONZE.PERFIL_CALIDAD.
+
+inputs:
+  - id: periodo
+    type: STRING
+    defaults: "202107"
+    validator: "^\\d{6}$"
+    description: Periodo AAAAMM a perfilar.
+
+tasks:
+  - id: contar_periodo
+    type: io.kestra.plugin.jdbc.snowflake.Query
+    url: jdbc:snowflake://{{ envs.snowflake_account }}.snowflakecomputing.com/
+    username: "{{ envs.snowflake_user }}"
+    password: "{{ envs.snowflake_password }}"
+    warehouse: "{{ envs.snowflake_warehouse }}"
+    database: "{{ envs.snowflake_database }}"
+    role: "{{ envs.snowflake_role }}"
+    schema: BRONZE
+    fetchType: FETCH_ONE
+    sql: SELECT COUNT(*) AS FILAS FROM BRONZE.EMERGENCIAS WHERE _PERIODO = '{{ inputs.periodo }}'
+
+  - id: periodo_cargado
+    type: io.kestra.plugin.core.execution.Assert
+    errorMessage: "El periodo {{ inputs.periodo }} no esta cargado en BRONZE.EMERGENCIAS; ejecuta ingesta_ecu911 primero"
+    conditions:
+      - "{{ outputs.contar_periodo.row.FILAS > 0 }}"
+
+  - id: calcular_metricas
+    type: io.kestra.plugin.jdbc.snowflake.Queries
+    url: jdbc:snowflake://{{ envs.snowflake_account }}.snowflakecomputing.com/
+    username: "{{ envs.snowflake_user }}"
+    password: "{{ envs.snowflake_password }}"
+    warehouse: "{{ envs.snowflake_warehouse }}"
+    database: "{{ envs.snowflake_database }}"
+    role: "{{ envs.snowflake_role }}"
+    schema: BRONZE
+    transaction: true
+    sql: |
+      DELETE FROM BRONZE.PERFIL_CALIDAD WHERE EJECUCION_ID = '{{ execution.id }}';
+
+      INSERT INTO BRONZE.PERFIL_CALIDAD (EJECUCION_ID, PERIODO, COLUMNA, METRICA, VALOR, DETALLE, PERFILADO_EN)
+      WITH b AS (
+        SELECT FECHA, PROVINCIA, CANTON, COD_PARROQUIA, PARROQUIA, SERVICIO, SUBTIPO
+        FROM BRONZE.EMERGENCIAS
+        WHERE _PERIODO = '{{ inputs.periodo }}'
+      ),
+      por_columna AS (
+        -- UNPIVOT exige el mismo tipo exacto en todas las columnas; COUNT, COUNT_IF y LENGTH difieren en precision
+        SELECT
+          COLUMNA,
+          COUNT_IF(VALOR IS NULL)::NUMBER(38,0)                          AS NULOS,
+          COUNT_IF(VALOR IS NOT NULL AND TRIM(VALOR) = '')::NUMBER(38,0) AS VACIOS,
+          COUNT_IF(VALOR <> TRIM(VALOR))::NUMBER(38,0)                   AS ESPACIOS_EXTREMOS,
+          COUNT(DISTINCT VALOR)::NUMBER(38,0)                            AS DISTINTOS,
+          COUNT(DISTINCT UPPER(TRIM(VALOR)))::NUMBER(38,0)               AS DISTINTOS_NORMALIZADOS,
+          MIN(LENGTH(VALOR))::NUMBER(38,0)                               AS LARGO_MIN,
+          MAX(LENGTH(VALOR))::NUMBER(38,0)                               AS LARGO_MAX
+        FROM b UNPIVOT INCLUDE NULLS (VALOR FOR COLUMNA IN (FECHA, PROVINCIA, CANTON, COD_PARROQUIA, PARROQUIA, SERVICIO, SUBTIPO))
+        GROUP BY COLUMNA
+      ),
+      fechas AS (
+        SELECT
+          FECHA,
+          FECHA RLIKE '[0-9]{1,2}/[0-9]{1,2}/[0-9]{4}' AS FORMATO_OK,
+          TRY_TO_DATE(
+            LPAD(SPLIT_PART(FECHA, '/', 1), 2, '0') || '/' ||
+            LPAD(SPLIT_PART(FECHA, '/', 2), 2, '0') || '/' ||
+            SPLIT_PART(FECHA, '/', 3),
+            'DD/MM/YYYY'
+          ) AS FECHA_D
+        FROM b
+      ),
+      codigos AS (
+        SELECT PROVINCIA, CANTON, PARROQUIA, LPAD(COD_PARROQUIA, 6, '0') AS COD6
+        FROM b
+        WHERE COD_PARROQUIA RLIKE '[0-9]{5,6}'
+      ),
+      metricas (COLUMNA, METRICA, VALOR, DETALLE) AS (
+        -- Tabla completa
+        SELECT '*', 'filas', COUNT(*), NULL FROM b
+        UNION ALL
+        SELECT '*', 'filas_duplicadas_exactas',
+          (SELECT COUNT(*) FROM b)
+          - (SELECT COUNT(*) FROM (SELECT DISTINCT FECHA, PROVINCIA, CANTON, COD_PARROQUIA, PARROQUIA, SERVICIO, SUBTIPO FROM b)),
+          NULL
+        UNION ALL
+        SELECT '*', 'max_repeticiones_de_una_fila', MAX(N), NULL
+        FROM (SELECT COUNT(*) AS N FROM b GROUP BY FECHA, PROVINCIA, CANTON, COD_PARROQUIA, PARROQUIA, SERVICIO, SUBTIPO)
+
+        -- Todas las columnas
+        UNION ALL
+        SELECT COLUMNA, LOWER(METRICA), VALOR, NULL
+        FROM por_columna
+          UNPIVOT (VALOR FOR METRICA IN (NULOS, VACIOS, ESPACIOS_EXTREMOS, DISTINTOS, DISTINTOS_NORMALIZADOS, LARGO_MIN, LARGO_MAX))
+
+        -- FECHA
+        UNION ALL
+        SELECT 'FECHA', 'formato_d_m_aaaa', COUNT_IF(FORMATO_OK), NULL FROM fechas
+        UNION ALL
+        SELECT 'FECHA', 'no_convertible_a_fecha', COUNT_IF(FECHA_D IS NULL), NULL FROM fechas
+        UNION ALL
+        SELECT 'FECHA', 'fuera_del_periodo',
+          COUNT_IF(FECHA_D IS NOT NULL AND TO_CHAR(FECHA_D, 'YYYYMM') <> '{{ inputs.periodo }}'), NULL
+        FROM fechas
+        UNION ALL
+        SELECT 'FECHA', 'dias_distintos', COUNT(DISTINCT FECHA_D), NULL FROM fechas
+        UNION ALL
+        SELECT 'FECHA', 'dias_del_mes', DAY(LAST_DAY(TO_DATE('{{ inputs.periodo }}', 'YYYYMM'))), NULL
+        UNION ALL
+        SELECT 'FECHA', 'fecha_min', NULL, TO_CHAR(MIN(FECHA_D), 'YYYY-MM-DD') FROM fechas
+        UNION ALL
+        SELECT 'FECHA', 'fecha_max', NULL, TO_CHAR(MAX(FECHA_D), 'YYYY-MM-DD') FROM fechas
+
+        -- COD_PARROQUIA
+        UNION ALL
+        SELECT 'COD_PARROQUIA', 'filas_con_largo_' || COALESCE(TO_VARCHAR(LENGTH(COD_PARROQUIA)), 'nulo'), COUNT(*), NULL
+        FROM b GROUP BY LENGTH(COD_PARROQUIA)
+        UNION ALL
+        SELECT 'COD_PARROQUIA', 'no_numerico', COUNT_IF(NOT COD_PARROQUIA RLIKE '[0-9]+'), NULL FROM b
+        UNION ALL
+        SELECT 'COD_PARROQUIA', 'codigos_distintos_normalizados_6_digitos', COUNT(DISTINCT COD6), NULL FROM codigos
+        UNION ALL
+        SELECT 'COD_PARROQUIA', 'codigos_con_mas_de_una_ubicacion', COUNT(*), NULL
+        FROM (SELECT COD6 FROM codigos GROUP BY COD6 HAVING COUNT(DISTINCT PROVINCIA, CANTON, PARROQUIA) > 1)
+        UNION ALL
+        SELECT 'COD_PARROQUIA', 'ubicaciones_con_mas_de_un_codigo', COUNT(*), NULL
+        FROM (SELECT PROVINCIA, CANTON, PARROQUIA FROM codigos GROUP BY PROVINCIA, CANTON, PARROQUIA HAVING COUNT(DISTINCT COD6) > 1)
+        UNION ALL
+        SELECT 'COD_PARROQUIA', 'provincias_con_mas_de_un_prefijo', COUNT(*), NULL
+        FROM (SELECT PROVINCIA FROM codigos GROUP BY PROVINCIA HAVING COUNT(DISTINCT LEFT(COD6, 2)) > 1)
+
+        -- Distribuciones de dominios cortos
+        UNION ALL
+        SELECT 'SERVICIO', 'frecuencia', COUNT(*), COALESCE(SERVICIO, '<nulo>') FROM b GROUP BY SERVICIO
+        UNION ALL
+        SELECT 'PROVINCIA', 'frecuencia', COUNT(*), COALESCE(PROVINCIA, '<nulo>') FROM b GROUP BY PROVINCIA
+      )
+      SELECT '{{ execution.id }}', '{{ inputs.periodo }}', COLUMNA, METRICA, VALOR, DETALLE, CURRENT_TIMESTAMP()
+      FROM metricas;
+
+  - id: resultados
+    type: io.kestra.plugin.jdbc.snowflake.Query
+    url: jdbc:snowflake://{{ envs.snowflake_account }}.snowflakecomputing.com/
+    username: "{{ envs.snowflake_user }}"
+    password: "{{ envs.snowflake_password }}"
+    warehouse: "{{ envs.snowflake_warehouse }}"
+    database: "{{ envs.snowflake_database }}"
+    role: "{{ envs.snowflake_role }}"
+    schema: BRONZE
+    fetchType: FETCH
+    sql: |
+      SELECT COLUMNA, METRICA, VALOR, DETALLE
+      FROM BRONZE.PERFIL_CALIDAD
+      WHERE EJECUCION_ID = '{{ execution.id }}'
+      ORDER BY COLUMNA, METRICA, DETALLE

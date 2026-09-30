@@ -42,6 +42,17 @@ tasks:
       )
       COMMENT = 'Base de Emergencias ECU 911 tal como se publica; todo VARCHAR';
 
+      CREATE TABLE IF NOT EXISTS BRONZE.PERFIL_CALIDAD (
+        EJECUCION_ID VARCHAR       NOT NULL,
+        PERIODO      VARCHAR(6)    NOT NULL,
+        COLUMNA      VARCHAR       NOT NULL,
+        METRICA      VARCHAR       NOT NULL,
+        VALOR        NUMBER,
+        DETALLE      VARCHAR,
+        PERFILADO_EN TIMESTAMP_LTZ NOT NULL
+      )
+      COMMENT = 'Metricas de calidad de BRONZE.EMERGENCIAS por periodo; una fila por metrica y ejecucion de perfilar_bronze';
+
   - id: verificar_objetos
     type: io.kestra.plugin.jdbc.snowflake.Query
     url: jdbc:snowflake://{{ envs.snowflake_account }}.snowflakecomputing.com/
@@ -60,4 +71,6 @@ tasks:
           WHERE STAGE_SCHEMA = 'BRONZE' AND STAGE_NAME = 'STG_EMERGENCIAS') AS STAGE,
         (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
           WHERE TABLE_SCHEMA = 'BRONZE' AND TABLE_NAME = 'EMERGENCIAS') AS COLUMNAS_TABLA,
+        (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+          WHERE TABLE_SCHEMA = 'BRONZE' AND TABLE_NAME = 'PERFIL_CALIDAD') AS COLUMNAS_PERFIL,
         CURRENT_ROLE() AS ROL
