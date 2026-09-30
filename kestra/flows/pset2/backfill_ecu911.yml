@@ -1,0 +1,133 @@
+id: backfill_ecu911
+namespace: pset2
+description: Carga y perfila en BRONZE todos los periodos CSV publicados en CKAN dentro de un rango, uno por uno.
+
+inputs:
+  - id: desde
+    type: STRING
+    defaults: "202107"
+    validator: "^\\d{6}$"
+    description: Primer periodo AAAAMM a incluir.
+  - id: hasta
+    type: STRING
+    defaults: "999912"
+    validator: "^\\d{6}$"
+    description: Ultimo periodo AAAAMM a incluir.
+
+tasks:
+  - id: consultar_catalogo
+    type: io.kestra.plugin.core.http.Request
+    uri: "https://www.datosabiertos.gob.ec/api/3/action/package_show?id=00c650e7-42a9-4f3c-9f29-45000091f8b3"
+    method: GET
+    retry:
+      type: exponential
+      interval: PT10S
+      maxInterval: PT2M
+      maxAttempts: 4
+
+  - id: listar_periodos
+    type: io.kestra.plugin.scripts.python.Script
+    containerImage: python:3.12-slim
+    inputFiles:
+      catalogo.json: "{{ outputs.consultar_catalogo.body }}"
+    script: |
+      import json
+      import re
+      import sys
+
+      desde = "{{ inputs.desde }}"
+      hasta = "{{ inputs.hasta }}"
+
+      with open("catalogo.json", encoding="utf-8") as f:
+          catalogo = json.load(f)
+
+      if not catalogo.get("success"):
+          sys.exit(f"CKAN respondió success=false: {catalogo.get('error')}")
+
+      patron = re.compile(r"_(\d{6})(?!\d)")
+      csv_por_periodo = {}
+      excluidos = []
+      for r in catalogo["result"]["resources"]:
+          m = patron.search(r["name"])
+          if not m or not (desde <= m.group(1) <= hasta):
+              continue
+          periodo = m.group(1)
+          if r.get("mimetype") != "text/csv":
+              excluidos.append({"periodo": periodo, "mimetype": r.get("mimetype")})
+              continue
+          if periodo in csv_por_periodo:
+              sys.exit(f"Hay mas de un CSV para {periodo}; ingesta_ecu911 fallaria")
+          csv_por_periodo[periodo] = r["size"]
+
+      periodos = sorted(csv_por_periodo)
+      if not periodos:
+          sys.exit(f"No hay periodos CSV entre {desde} y {hasta}")
+
+      print(f"{len(periodos)} periodos CSV ({periodos[0]} a {periodos[-1]}), {sum(csv_por_periodo.values())} bytes")
+      print(f"Excluidos por no ser CSV: {excluidos}")
+      print("::" + json.dumps({"outputs": {"periodos": periodos, "excluidos": excluidos}}) + "::")
+
+  - id: por_periodo
+    type: io.kestra.plugin.core.flow.Loop
+    values: "{{ outputs.listar_periodos.vars.periodos | toJson }}"
+    concurrencyLimit: 1
+    transmitFailed: false
+    tasks:
+      - id: cargar
+        type: io.kestra.plugin.core.flow.Subflow
+        namespace: pset2
+        flowId: ingesta_ecu911
+        wait: true
+        transmitFailed: true
+        inputs:
+          periodo: "{{ item.value }}"
+
+      - id: perfilar
+        type: io.kestra.plugin.core.flow.Subflow
+        namespace: pset2
+        flowId: perfilar_bronze
+        wait: true
+        transmitFailed: true
+        inputs:
+          periodo: "{{ item.value }}"
+
+  - id: resumen
+    type: io.kestra.plugin.jdbc.snowflake.Query
+    url: jdbc:snowflake://{{ envs.snowflake_account }}.snowflakecomputing.com/
+    username: "{{ envs.snowflake_user }}"
+    password: "{{ envs.snowflake_password }}"
+    warehouse: "{{ envs.snowflake_warehouse }}"
+    database: "{{ envs.snowflake_database }}"
+    role: "{{ envs.snowflake_role }}"
+    schema: BRONZE
+    fetchType: FETCH_ONE
+    sql: |
+      WITH esperados AS (
+        SELECT VALUE::VARCHAR AS PERIODO
+        FROM TABLE(SPLIT_TO_TABLE('{{ outputs.listar_periodos.vars.periodos | join(",") }}', ','))
+      ),
+      cargados AS (
+        SELECT _PERIODO AS PERIODO, COUNT(*) AS FILAS
+        FROM BRONZE.EMERGENCIAS
+        GROUP BY _PERIODO
+      ),
+      perfilados AS (
+        SELECT DISTINCT PERIODO FROM BRONZE.PERFIL_CALIDAD
+      )
+      SELECT
+        COUNT(*)                                                        AS PERIODOS_ESPERADOS,
+        COUNT(c.PERIODO)                                                AS PERIODOS_CARGADOS,
+        COUNT(p.PERIODO)                                                AS PERIODOS_PERFILADOS,
+        COALESCE(LISTAGG(IFF(c.PERIODO IS NULL, e.PERIODO, NULL), ',') WITHIN GROUP (ORDER BY e.PERIODO), '') AS SIN_CARGAR,
+        COALESCE(LISTAGG(IFF(p.PERIODO IS NULL, e.PERIODO, NULL), ',') WITHIN GROUP (ORDER BY e.PERIODO), '') AS SIN_PERFILAR,
+        SUM(c.FILAS)                                                    AS FILAS_TOTALES
+      FROM esperados e
+      LEFT JOIN cargados c ON c.PERIODO = e.PERIODO
+      LEFT JOIN perfilados p ON p.PERIODO = e.PERIODO
+
+  - id: todo_cargado
+    type: io.kestra.plugin.core.execution.Assert
+    errorMessage: "Periodos sin cargar: [{{ outputs.resumen.row.SIN_CARGAR }}]; sin perfilar: [{{ outputs.resumen.row.SIN_PERFILAR }}]"
+    conditions:
+      - "{{ outputs.resumen.row.PERIODOS_CARGADOS == outputs.resumen.row.PERIODOS_ESPERADOS }}"
+      - "{{ outputs.resumen.row.PERIODOS_PERFILADOS == outputs.resumen.row.PERIODOS_ESPERADOS }}"

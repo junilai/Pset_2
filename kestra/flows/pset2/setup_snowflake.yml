@@ -19,7 +19,9 @@ tasks:
         SKIP_HEADER = 1
         FIELD_OPTIONALLY_ENCLOSED_BY = '"'
         ENCODING = 'UTF8'
-        ERROR_ON_COLUMN_COUNT_MISMATCH = TRUE
+        -- Algunos meses traen un ';' final (8 campos); el COPY toma $1..$7 y validar_archivo
+        -- de ingesta_ecu911 ya rechaza cualquier fila con un numero de campos inesperado.
+        ERROR_ON_COLUMN_COUNT_MISMATCH = FALSE
         COMMENT = 'CSV de la Base de Emergencias ECU 911 (datosabiertos.gob.ec)';
 
       CREATE STAGE IF NOT EXISTS BRONZE.STG_EMERGENCIAS

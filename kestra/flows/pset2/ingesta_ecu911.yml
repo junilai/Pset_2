@@ -98,22 +98,33 @@ tasks:
           with open("datos.csv", encoding="utf-8-sig", newline="") as f:
               lector = csv.reader(f, delimiter=";", quotechar='"')
               encabezado = next(lector)
-              if encabezado != ENCABEZADO:
+              # Algunos meses (p. ej. 202110) terminan cada linea con un ';' sobrante: se acepta
+              # una octava columna solo si su nombre esta vacio y viene en blanco en todas las filas.
+              con_columna_extra = encabezado == ENCABEZADO + [""]
+              if encabezado != ENCABEZADO and not con_columna_extra:
                   sys.exit(f"Encabezado inesperado: {encabezado}")
+              ancho = len(encabezado)
 
               filas = 0
               anchos_invalidos = []
+              extra_con_dato = []
               for fila in lector:
                   filas += 1
-                  if len(fila) != len(ENCABEZADO) and len(anchos_invalidos) < 10:
-                      anchos_invalidos.append((lector.line_num, len(fila)))
+                  if len(fila) != ancho:
+                      if len(anchos_invalidos) < 10:
+                          anchos_invalidos.append((lector.line_num, len(fila)))
+                  elif con_columna_extra and fila[-1].strip() != "":
+                      if len(extra_con_dato) < 10:
+                          extra_con_dato.append((lector.line_num, fila[-1]))
       except UnicodeDecodeError as e:
           sys.exit(f"El archivo no es UTF-8 válido: {e}")
 
       if anchos_invalidos:
-          sys.exit(f"Filas con número de columnas distinto de {len(ENCABEZADO)} (línea, columnas): {anchos_invalidos}")
+          sys.exit(f"Filas con número de columnas distinto de {ancho} (línea, columnas): {anchos_invalidos}")
+      if extra_con_dato:
+          sys.exit(f"La columna sobrante trae datos (línea, valor): {extra_con_dato}")
 
-      salida = {"bytes": tamano, "filas": filas, "tiene_bom": tiene_bom}
+      salida = {"bytes": tamano, "filas": filas, "tiene_bom": tiene_bom, "columnas_archivo": ancho}
       print("::" + json.dumps({"outputs": salida}) + "::")
 
   - id: limpiar_stage
