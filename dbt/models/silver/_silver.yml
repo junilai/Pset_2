@@ -1,0 +1,64 @@
+version: 2
+
+models:
+  - name: dim_parroquia
+    description: Catalogo de parroquias (regla 6), con la asociacion mas frecuente de los 60 periodos.
+    columns:
+      - name: cod_parroquia
+        description: Codigo INEC de 6 digitos.
+        data_tests:
+          - unique
+          - not_null
+      - name: provincia
+        data_tests:
+          - not_null
+      - name: proporcion_asociacion
+        description: Fraccion de filas del codigo que coinciden con la provincia y el canton elegidos.
+
+  - name: emergencias
+    description: Una fila por emergencia reportada, con las nueve reglas de docs/perfilado.md aplicadas.
+    columns:
+      - name: id_emergencia
+        data_tests:
+          - unique
+          - not_null
+      - name: periodo
+        data_tests:
+          - not_null
+      - name: fecha
+        data_tests:
+          - not_null
+      - name: servicio
+        description: NULL cuando la fuente no lo trae (regla 9).
+        data_tests:
+          - accepted_values:
+              arguments:
+                values:
+                  - Seguridad Ciudadana
+                  - Gestión Sanitaria
+                  - Tránsito y Movilidad
+                  - Servicios Municipales
+                  - Gestión de Siniestros
+                  - Servicio Militar
+                  - Gestión de Riesgos
+      - name: cod_parroquia
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_parroquia')
+                field: cod_parroquia
+      - name: ajuste_codigo
+        description: >
+          CORREGIDO si el codigo no correspondia a la ubicacion de la fila y se obtuvo de los nombres;
+          INFERIDO si faltaba y se obtuvo de los nombres; ANULADO si contradecia la provincia y no se pudo
+          corregir (se conservan provincia y canton, parroquia y codigo quedan en NULL).
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['CORREGIDO', 'INFERIDO', 'ANULADO']
+      - name: sin_ubicacion
+        data_tests:
+          - not_null
+      - name: subtipo_no_disponible
+        data_tests:
+          - not_null

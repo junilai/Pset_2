@@ -69,6 +69,14 @@ En 202302 la columna `SUBTIPO` solo tiene 7 valores distintos, y son las mismas 
 - `SUBTIPO` nulo: 83 filas en 16 periodos, más 1 que solo tiene espacios (202110).
 - `SUBTIPO` con variantes de mayúsculas o espacios: 1 valor en cada uno de 8 periodos.
 
+### H8. `Ñ` mal codificada como `Ð` (encontrado al construir Silver)
+
+El cantón `LOGROÑO` aparece como `LOGROÐO` en 4,418 filas de 57 periodos. Es el único valor con caracteres fuera del alfabeto español en `PROVINCIA`, `CANTON`, `PARROQUIA`, `SERVICIO` y `SUBTIPO`. El perfilado no lo detectó, porque el valor no está vacío, no tiene espacios y no tiene variantes de mayúsculas. Como la grafía corrupta es la más frecuente, sin corregirla el catálogo de parroquias habría elegido `LOGROÐO`.
+
+### H9. Filas de 202201 con ubicación contradictoria (encontrado al construir Silver)
+
+Hay 10 filas con provincia y cantón de Morona Santiago, pero con parroquia y código de Guayaquil (`GUAYAQUIL, CABECERA CANTONAL Y CAPITAL PROVINCIAL`, `090150`). A diferencia de H4, los nombres no permiten encontrar el código correcto.
+
 ## Reglas para Silver
 
 | # | Regla | Hallazgo |
@@ -82,6 +90,21 @@ En 202302 la columna `SUBTIPO` solo tiene 7 valores distintos, y son las mismas 
 | 7 | Poner `SUBTIPO` en NULL para 202302 y marcarlo con un indicador `subtipo_no_disponible`. | H5 |
 | 8 | Aplicar `TRIM` a todas las columnas y unificar mayúsculas en `SUBTIPO`. | H7 |
 | 9 | Dejar `SERVICIO` nulo como NULL; se reporta como dato faltante, no se imputa. | H7 |
+| 10 | Reemplazar `Ð` por `Ñ` en las columnas de ubicación. | H8 |
+| 11 | Si el código contradice la provincia y no se puede corregir con los nombres, conservar provincia y cantón y dejar parroquia y código en NULL (`ajuste_codigo = 'ANULADO'`). | H9 |
+
+### Resultado en `SILVER.EMERGENCIAS`
+
+| Cifra | Valor |
+|---|---|
+| Filas (iguales a Bronze, periodo por periodo) | 17,120,516 |
+| Parroquias en `SILVER.DIM_PARROQUIA` | 1,041 |
+| `ajuste_codigo = 'CORREGIDO'` / `'INFERIDO'` / `'ANULADO'` | 34 (8 periodos) / 3 / 10 |
+| `sin_ubicacion` | 2,038 |
+| `subtipo_no_disponible` (202302) | 270,613 |
+| Subtipos distintos después de unificar la grafía | 689 |
+
+Los 19 tests de dbt pasan, entre ellos: conservación de filas por periodo, fecha dentro del periodo, código de 6 dígitos, relación con `dim_parroquia` y ubicación de origen coincidente con el código.
 
 ## Anexo: cifras por periodo
 

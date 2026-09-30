@@ -1,0 +1,14 @@
+version: 2
+
+models:
+  - name: stg_emergencias
+    description: Limpieza fila por fila de BRONZE.EMERGENCIAS; mismas filas que Bronze.
+    columns:
+      - name: id_emergencia
+        description: Periodo y numero de fila en el archivo original (AAAAMM-NNNNNNN).
+        data_tests:
+          - unique
+          - not_null
+      - name: fecha
+        data_tests:
+          - not_null
