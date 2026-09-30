@@ -1,0 +1,16 @@
+version: 2
+
+sources:
+  - name: bronze
+    description: Datos originales cargados por Kestra desde datosabiertos.gob.ec.
+    database: "{{ target.database }}"
+    schema: BRONZE
+    tables:
+      - name: emergencias_raw
+        identifier: EMERGENCIAS_RAW
+        description: Registros mensuales originales del ECU 911, sin transformar.
+        columns:
+          - name: fecha
+            data_tests: [not_null]
+          - name: source_period
+            data_tests: [not_null]

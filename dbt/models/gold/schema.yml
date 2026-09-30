@@ -1,0 +1,85 @@
+version: 2
+
+models:
+  - name: dim_date
+    description: Calendario diario que cubre los datos y los siete días de pronóstico.
+    columns:
+      - name: date_key
+        data_tests: [not_null, unique]
+      - name: calendar_date
+        data_tests: [not_null, unique]
+
+  - name: dim_canton
+    description: Catálogo canónico por código DPA de cantón; el nombre modal evita joins por texto.
+    columns:
+      - name: canton_key
+        data_tests: [not_null, unique]
+      - name: is_model_eligible
+        data_tests: [not_null]
+      - name: is_known_canton
+        data_tests: [not_null]
+
+  - name: dim_emergency_type
+    description: Tipo compuesto por categoría de servicio y subtipo; un subtipo puede pertenecer a varios servicios.
+    columns:
+      - name: emergency_type_key
+        data_tests: [not_null, unique]
+      - name: service_category
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['SEGURIDAD', 'SALUD', 'TRANSITO', 'MUNICIPAL', 'SINIESTROS', 'MILITAR', 'RIESGOS', 'OTRO']
+
+  - name: fct_emergencias_daily
+    description: Una fila por fecha, cantón y tipo de emergencia; conserva el volumen mediante INCIDENT_COUNT.
+    columns:
+      - name: daily_emergency_key
+        data_tests: [not_null, unique]
+      - name: date_key
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_date')
+                field: date_key
+      - name: event_date
+        data_tests: [not_null]
+      - name: canton_key
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_canton')
+                field: canton_key
+      - name: emergency_type_key
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_emergency_type')
+                field: emergency_type_key
+      - name: incident_count
+        data_tests: [not_null]
+
+  - name: fct_canton_daily
+    description: Volumen diario observado por cantón y por categoría de servicio.
+    columns:
+      - name: date_key
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_date')
+                field: date_key
+      - name: event_date
+        data_tests: [not_null]
+      - name: canton_key
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_canton')
+                field: canton_key
+      - name: total_incidents
+        data_tests: [not_null]

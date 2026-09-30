@@ -1,0 +1,38 @@
+version: 2
+
+models:
+  - name: stg_emergencias
+    description: >
+      Emergencias normalizadas y compactadas por igualdad exacta de todos los
+      campos raw. INCIDENT_COUNT conserva el número original de ocurrencias.
+    columns:
+      - name: emergency_group_id
+        data_tests: [not_null, unique]
+      - name: source_period
+        data_tests: [not_null]
+      - name: emergency_type_key
+        data_tests: [not_null]
+      - name: service_category
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['SEGURIDAD', 'SALUD', 'TRANSITO', 'MUNICIPAL', 'SINIESTROS', 'MILITAR', 'RIESGOS', 'OTRO']
+      - name: incident_count
+        data_tests: [not_null]
+      - name: duplicate_rows_collapsed
+        data_tests: [not_null]
+      - name: is_repeated_group
+        data_tests: [not_null]
+      - name: is_date_repaired
+        data_tests: [not_null]
+      - name: is_source_period_mismatch
+        data_tests: [not_null]
+      - name: is_model_usable
+        data_tests: [not_null]
+      - name: quality_status
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['VALID', 'VALID_WITH_WARNINGS', 'INVALID']

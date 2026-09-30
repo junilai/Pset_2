@@ -1,0 +1,23 @@
+name: ecu911_pset2
+version: "1.0.0"
+config-version: 2
+
+profile: ecu911_pset2
+
+model-paths: ["models"]
+macro-paths: ["macros"]
+test-paths: ["tests"]
+clean-targets: ["target", "dbt_packages", "logs"]
+
+vars:
+  training_cutoff: "2024-12-31"
+  validation_cutoff: "2025-12-31"
+
+models:
+  ecu911_pset2:
+    silver:
+      +schema: SILVER
+      +materialized: table
+    gold:
+      +schema: GOLD
+      +materialized: table
