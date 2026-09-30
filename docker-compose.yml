@@ -60,6 +60,12 @@ services:
           tasks:
             tmp-dir:
               path: /tmp/kestra-wd/tmp
+          plugins:
+            configurations:
+              # Permite que transformar_silver monte ./dbt en el contenedor de dbt
+              - type: io.kestra.plugin.scripts.runner.docker.Docker
+                values:
+                  volume-enabled: true
           url: http://localhost:8080/
       ENV_SNOWFLAKE_ACCOUNT: ${SNOWFLAKE_ACCOUNT}
       ENV_SNOWFLAKE_USER: ${SNOWFLAKE_USER}
@@ -69,6 +75,8 @@ services:
       ENV_SNOWFLAKE_ROLE: ${SNOWFLAKE_ROLE}
       # Tope de heap para dejar memoria fija al cluster de Spark (Docker tiene 5 GB)
       JAVA_OPTS: "-Xmx1g"
+      # Ruta de ./dbt en el host: los contenedores de las tareas los crea el Docker del host, no Kestra
+      ENV_DBT_PROJECT_DIR: ${PWD}/dbt
 
     ports:
       - "8080:8080"
@@ -104,3 +112,17 @@ services:
       - "8091:8081"
     depends_on:
       - spark-master
+
+  # Solo para desarrollo local: docker compose run --rm dbt <comando>. No arranca con "up".
+  dbt:
+    build: ./dbt
+    image: pset2-dbt:1.12.1
+    profiles: ["tools"]
+    entrypoint: ["dbt"]
+    working_dir: /dbt
+    env_file:
+      - .env
+    environment:
+      DBT_PROFILES_DIR: /dbt
+    volumes:
+      - ./dbt:/dbt

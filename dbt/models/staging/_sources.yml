@@ -1,0 +1,11 @@
+version: 2
+
+sources:
+  - name: bronze
+    schema: BRONZE
+    description: Datos tal como los carga ingesta_ecu911 (todo VARCHAR). Ver docs/perfilado.md.
+    tables:
+      - name: emergencias
+        identifier: EMERGENCIAS
+      - name: perfil_calidad
+        identifier: PERFIL_CALIDAD
