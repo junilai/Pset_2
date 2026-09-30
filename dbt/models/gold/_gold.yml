@@ -1,0 +1,71 @@
+version: 2
+
+models:
+  - name: dim_fecha
+    description: Un dia por fila entre el primer y el ultimo mes con datos, incluidos los dias sin emergencias.
+    columns:
+      - name: fecha_key
+        description: Fecha como entero AAAAMMDD.
+        data_tests:
+          - unique
+          - not_null
+
+  - name: dim_ubicacion
+    description: >
+      Parroquias de SILVER.DIM_PARROQUIA mas miembros especiales. nivel = PARROQUIA (codigo INEC),
+      CANTON (<cod_canton>00, parroquia desconocida) o NINGUNO (000000, sin ubicacion).
+    columns:
+      - name: ubicacion_key
+        data_tests:
+          - unique
+          - not_null
+      - name: nivel
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['PARROQUIA', 'CANTON', 'NINGUNO']
+
+  - name: dim_tipo_emergencia
+    description: >
+      Una fila por combinacion de servicio y subtipo. NO INFORMADO = la fuente no trae el valor;
+      NO DISPONIBLE = subtipo ausente en todo el periodo 202302.
+    columns:
+      - name: tipo_emergencia_key
+        data_tests:
+          - unique
+          - not_null
+      - name: servicio
+        data_tests:
+          - not_null
+      - name: subtipo
+        data_tests:
+          - not_null
+
+  - name: fct_emergencias
+    description: Una fila por emergencia reportada al ECU 911.
+    columns:
+      - name: id_emergencia
+        data_tests:
+          - unique
+          - not_null
+      - name: fecha_key
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_fecha')
+                field: fecha_key
+      - name: ubicacion_key
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_ubicacion')
+                field: ubicacion_key
+      - name: tipo_emergencia_key
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_tipo_emergencia')
+                field: tipo_emergencia_key

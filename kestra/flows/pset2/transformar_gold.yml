@@ -1,0 +1,30 @@
+id: transformar_gold
+namespace: pset2
+description: Construye y prueba el modelo estrella de GOLD (fct_emergencias y sus dimensiones) sobre SILVER.
+
+concurrency:
+  limit: 1
+
+tasks:
+  - id: dbt_build
+    type: io.kestra.plugin.dbt.cli.DbtCLI
+    containerImage: pset2-dbt:1.12.1
+    taskRunner:
+      type: io.kestra.plugin.scripts.runner.docker.Docker
+      # Imagen construida localmente con: docker compose --profile tools build dbt
+      pullPolicy: NEVER
+      volumes:
+        # El proyecto se monta de solo lectura; target/ y logs/ van al directorio de trabajo de la tarea
+        - "{{ envs.dbt_project_dir }}:/dbt:ro"
+    env:
+      SNOWFLAKE_ACCOUNT: "{{ envs.snowflake_account }}"
+      SNOWFLAKE_USER: "{{ envs.snowflake_user }}"
+      SNOWFLAKE_PASSWORD: "{{ envs.snowflake_password }}"
+      SNOWFLAKE_WAREHOUSE: "{{ envs.snowflake_warehouse }}"
+      SNOWFLAKE_DATABASE: "{{ envs.snowflake_database }}"
+      SNOWFLAKE_ROLE: "{{ envs.snowflake_role }}"
+      DBT_PROJECT_DIR: /dbt
+      DBT_PROFILES_DIR: /dbt
+    commands:
+      - dbt debug --log-path "$PWD/logs"
+      - dbt build --select gold --target-path "$PWD/target" --log-path "$PWD/logs"
