@@ -63,3 +63,55 @@ tasks:
           "last_modified": recurso["last_modified"],
       }
       print("::" + json.dumps({"outputs": salida}) + "::")
+
+  - id: descargar_archivo
+    type: io.kestra.plugin.core.http.Download
+    uri: "{{ outputs.seleccionar_recurso.vars.url }}"
+    retry:
+      type: exponential
+      interval: PT10S
+      maxInterval: PT2M
+      maxAttempts: 4
+
+  - id: validar_archivo
+    type: io.kestra.plugin.scripts.python.Script
+    containerImage: python:3.12-slim
+    inputFiles:
+      datos.csv: "{{ outputs.descargar_archivo.uri }}"
+    script: |
+      import csv
+      import json
+      import os
+      import sys
+
+      ENCABEZADO = ["Fecha", "provincia", "Canton", "Cod_Parroquia", "Parroquia", "Servicio", "Subtipo"]
+      tamano_esperado = {{ outputs.seleccionar_recurso.vars.size }}
+
+      tamano = os.path.getsize("datos.csv")
+      if tamano != tamano_esperado:
+          sys.exit(f"Descarga incompleta o distinta: {tamano} bytes, CKAN reporta {tamano_esperado}")
+
+      with open("datos.csv", "rb") as f:
+          tiene_bom = f.read(3) == b"\xef\xbb\xbf"
+
+      try:
+          with open("datos.csv", encoding="utf-8-sig", newline="") as f:
+              lector = csv.reader(f, delimiter=";", quotechar='"')
+              encabezado = next(lector)
+              if encabezado != ENCABEZADO:
+                  sys.exit(f"Encabezado inesperado: {encabezado}")
+
+              filas = 0
+              anchos_invalidos = []
+              for fila in lector:
+                  filas += 1
+                  if len(fila) != len(ENCABEZADO) and len(anchos_invalidos) < 10:
+                      anchos_invalidos.append((lector.line_num, len(fila)))
+      except UnicodeDecodeError as e:
+          sys.exit(f"El archivo no es UTF-8 válido: {e}")
+
+      if anchos_invalidos:
+          sys.exit(f"Filas con número de columnas distinto de {len(ENCABEZADO)} (línea, columnas): {anchos_invalidos}")
+
+      salida = {"bytes": tamano, "filas": filas, "tiene_bom": tiene_bom}
+      print("::" + json.dumps({"outputs": salida}) + "::")
