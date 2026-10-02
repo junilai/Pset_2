@@ -9,8 +9,6 @@ Portal Datos Abiertos ──► Kestra ──► Snowflake BRONZE ──dbt─�
                            backfill)
 ```
 
-> Estado actual y bitácora de decisiones: [`docs/PROGRESO.md`](docs/PROGRESO.md)
-
 ## Fuente
 
 **ECU911 Base de Emergencias** — https://www.datosabiertos.gob.ec/dataset/base-de-emergencias
@@ -43,7 +41,6 @@ CSV con `;` (y 2 meses en XLSX). ~17.7 millones de registros. Sin ID de incident
 │   ├── models/gold/          # dim_canton, dim_fecha, fct_emergencias_canton_dia, _gold.yml (tests)
 │   └── tests/                # tests singulares (conservación de filas, grain, date spine, sumas)
 └── docs/
-    ├── PROGRESO.md           # bitácora del proyecto
     ├── modelo_dimensional.md # star schema: diagrama, grain y decisiones
     └── data_quality.sql      # profiling de calidad sobre BRONZE
 ```
