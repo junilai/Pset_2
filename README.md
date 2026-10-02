@@ -21,7 +21,8 @@ CSV con `;` (y 2 meses en XLSX). ~17.7 millones de registros. Sin ID de incident
 
 ```
 .
-├── docker-compose.yml        # postgres (metadata Kestra), kestra, kestra-init, spark-master, spark-worker, dbt (manual)
+├── docker-compose.yml        # postgres, kestra, kestra-init, spark-master, spark-worker y preparación de dbt
+├── docker/dbt/               # Dockerfile y versiones de dbt; construcción nativa AMD64/ARM64
 ├── .env.example              # plantilla de variables (copiar a .env)
 ├── kestra/
 │   ├── deploy_flows.sh       # lo ejecuta kestra-init: sube los flows y el proyecto dbt a Kestra por API
@@ -49,6 +50,7 @@ CSV con `;` (y 2 meses en XLSX). ~17.7 millones de registros. Sin ID de incident
 ## Requisitos
 
 - Docker Desktop (probado con Docker 29.8, Compose v5, 8 GB RAM asignados)
+- En Windows, Docker Desktop debe usar contenedores Linux.
 - Una cuenta de Snowflake con un usuario ACCOUNTADMIN
 
 ## Cómo ejecutar
@@ -57,17 +59,25 @@ CSV con `;` (y 2 meses en XLSX). ~17.7 millones de registros. Sin ID de incident
 ```powershell
 copy .env.example .env
 ```
+En macOS/Linux: `cp .env.example .env`.
 Completar en `.env`: `SNOWFLAKE_ADMIN_USER`, `SNOWFLAKE_ADMIN_PASSWORD`, `SNOWFLAKE_ACCOUNT` (formato `orgname-accountname`)
 y cambiar las contraseñas de ejemplo. **`.env` nunca se sube a Git.**
 
 ### 2. Levantar la infraestructura
 ```powershell
 docker compose up -d
-docker compose ps -a          # kestra, postgres, spark-* "running"; kestra-init "Exited (0)"
+docker compose ps -a          # kestra, postgres, spark-* activos; dbt y kestra-init "Exited (0)"
 docker compose logs kestra-init   # "Todos los flows desplegados."
 ```
 - Kestra: http://localhost:8080 (usuario/contraseña de `.env`)
 - Spark master: http://localhost:8090
+
+Compose construye `ecu911-dbt:1.9.0` desde `docker/dbt/Dockerfile`, instala dbt Core y el
+adaptador Snowflake 1.9.0 y ejecuta `dbt --version`. Kestra espera a que esta comprobación
+termine correctamente y usa esa misma imagen para sus tareas. La construcción usa la
+arquitectura del equipo: ARM64 en Mac Apple Silicon y AMD64 en Intel/AMD, incluyendo
+Windows con Docker Desktop. No hay que forzar `platform` ni descargar una imagen AMD64
+en un Mac ARM. La primera construcción requiere Internet y tarda más que los siguientes arranques.
 
 > Si se edita `.env`, volver a correr `docker compose up -d` (Docker solo lee `.env` al crear el contenedor).
 
@@ -92,7 +102,7 @@ FROM ECU911.BRONZE.EMERGENCIAS_RAW GROUP BY 1 ORDER BY 1;
 
 ### 6. dbt (Silver y Gold)
 - **Desde Kestra (pipeline):** Flows → `ecu911.dbt_build` → Execute (input `select = *`).
-  Corre `dbt source freshness` y `dbt build` en un contenedor `ghcr.io/dbt-labs/dbt-snowflake:1.9.0`.
+  Corre `dbt source freshness` y `dbt build` en un contenedor de la imagen local `ecu911-dbt:1.9.0`.
 - **Manual (desarrollo):**
   ```powershell
   docker compose run --rm dbt debug      # prueba la conexión

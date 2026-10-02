@@ -91,6 +91,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      dbt:
+        condition: service_completed_successfully
     networks: [pset2]
 
   # ---------------------------------------------------------------------------
@@ -113,13 +115,19 @@ services:
     networks: [pset2]
 
   # ---------------------------------------------------------------------------
-  # dbt Core (para desarrollo manual). No arranca con "up": se usa así
+  # dbt Core: "up" construye la imagen nativa y comprueba la versión una vez.
+  # Kestra espera a esta comprobación antes de lanzar tareas con la imagen local.
+  # Para desarrollo manual se usa así:
   #   docker compose run --rm dbt build
   # En el pipeline, dbt lo lanza Kestra (flow ecu911.dbt_build) con la misma imagen.
   # ---------------------------------------------------------------------------
   dbt:
-    image: ghcr.io/dbt-labs/dbt-snowflake:1.9.0
-    profiles: [manual]                # perfil de COMPOSE (no confundir con profiles.yml de dbt)
+    image: ecu911-dbt:1.9.0
+    build:
+      context: ./docker/dbt
+    pull_policy: build
+    command: ["--version"]
+    restart: "no"
     working_dir: /usr/app/dbt
     environment:
       SNOWFLAKE_ACCOUNT: ${SNOWFLAKE_ACCOUNT}
