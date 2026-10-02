@@ -3,7 +3,7 @@
 Registro de lo construido, decidido y encontrado, fase por fase. Sirve para retomar el trabajo
 y como base del documento técnico (máx. 6 páginas) y de la defensa oral.
 
-**Última sesión:** 29-sep-2026 · **Fases completas:** 0 a 12 · **Siguiente:** FASE 13 — demo de retries y backfill
+**Última sesión:** 02-oct-2026 · **Fases completas:** 0 a 13 · **Siguiente:** FASE 14 — demo de retries y backfill
 
 ---
 
@@ -22,7 +22,7 @@ y como base del documento técnico (máx. 6 páginas) y de la defensa oral.
 1. Abrir Docker Desktop y ejecutar `docker compose up -d` en la carpeta del proyecto.
 2. Verificar Kestra en http://localhost:8080 (credenciales en `.env`).
 3. Los datos siguen en Snowflake (`ECU911.BRONZE.EMERGENCIAS_RAW`, 17,680,253 filas); no hay que recargar nada.
-4. SILVER y GOLD ya están construidas (Kestra → `ecu911.dbt_build`, PASS=38) y la OBT (Kestra → `ecu911.spark_obt`); todo encadenado en `ingest_scheduled → transform`. Continuar con **FASE 13** (abajo, "Pendiente").
+4. SILVER y GOLD ya están construidas (Kestra → `ecu911.dbt_build`, PASS=39) y la OBT (Kestra → `ecu911.spark_obt`); todo encadenado en `ingest_scheduled → transform`. Continuar con **FASE 14** (abajo, "Pendiente").
 
 Estado de Git: repositorio inicializado (`main`), **sin commits todavía** (decisión del usuario).
 
@@ -248,9 +248,52 @@ nombre de archivo cambia de `emergencias_*` a `incidentes_*` en 2024.
 - Idempotencia end-to-end: 2026-08 pasó de la ejecución `4Pn4Vx5t…` (28-sep) a `35gvNDU4…` (29-sep) con las mismas 280,867 filas
   y 1 sola ejecución por mes; ninguna capa cambió de tamaño.
 
+## FASE 13 — Ajustes de features de la OBT y test de meses faltantes (02-oct-2026)
+Cuatro cambios, uno a la vez, cada uno ejecutado y verificado antes del siguiente.
+
+| # | Cambio | Motivo |
+|---|---|---|
+| 1 | `es_feriado_t3/t7` desde **DIM_FECHA** (join broadcast sobre `date_add(fecha, 3/7)`) en vez de `lead` | `lead` mira "la fila siguiente" del hecho, que termina en el último día con datos → los últimos 3/7 días de cada cantón quedaban NULL aunque el feriado se conoce de antemano. Nueva validación: 0 nulos; si `dim_fecha` no cubre fecha máx + 7, el job falla e indica hasta dónde llega |
+| 2 | Test singular **`silver_sin_meses_faltantes`** | Un mes ausente en medio del rango se convertiría en ceros falsos en el spine de Gold. `silver_meses_completos` no lo ve (solo revisa meses presentes) y `fct_canton_con_datos_cada_mes` lo ve tarde (después de construir Gold). En Silver: si falla, se salta Gold y Spark no corre |
+| 3 | **`lag_28d`** | 4 semanas atrás = mismo día de la semana que t (el target compara contra P90 por día de semana) |
+| 4 | `media_7d/28d` → **`media_prev_7d/28d`** (`rowsBetween(-7,-1)` / `(-28,-1)`, NULL si la ventana no está completa) | Las medias anteriores incluían el día t (redundante con `n_emergencias`) y promediaban ventanas parciales al inicio (la "media de 28 días" del día 1 era 1 solo día). Convención documentada en el docstring de `build_obt.py`: fila = información al cierre del día t; lags/medias solo días anteriores; `obj_*` no son features |
+
+| Verificación | Esperado | Obtenido |
+|---|---|---|
+| Nulos `es_feriado_t3` / `es_feriado_t7` | 0 / 0 (antes 672 / 1,568) | **0 / 0** |
+| Quito 22-dic-2025 `es_feriado_t3` | true (25-dic) | **true** |
+| `dbt build` | PASS=39 (antes 38) | **PASS=39** |
+| Nulos `lag_28d` | 6,272 (224×28) | **6,272** |
+| Nulos `media_prev_7d` | 1,568 (224×7) | **1,568** |
+| Nulos `media_prev_28d` | 6,272 (224×28) | **6,272** |
+| Nulos fuera de los primeros k días | 0 | **0** |
+| Quito 22-dic-2025 `media_prev_7d` | promedio 15–21 dic = 15,016 / 7 = 2,145.14 | **2,145.14** (la fórmula anterior, con t, daba 2,168.14) |
+| OBT | 422,912 filas, 37 columnas, 7 validaciones OK | **422,912 filas, 37 columnas, 7/7 OK** |
+
+- **Pipeline completo desde Kestra** (`ecu911.transform`, ejecución `5ZiEvnYB…`, 4 min 8 s): `dbt_build` SUCCESS (49 s,
+  `PASS=39 WARN=0 ERROR=0 SKIP=0`) · `spark_obt` SUCCESS (3 min 11 s, 7 `[validar] OK`) · `reconciliar` SUCCESS. Log:
+  `Pipeline OK. BRONZE 17680253 = SILVER 17680253 filas | SILVER válidas 17678093 = GOLD 17678093 = OBT 17678093 emergencias |
+  GOLD 422912 = OBT 422912 cantón-días | datos hasta 2026-08-31`. Los nulos de la OBT escrita por Kestra coinciden con la tabla de arriba.
+
+- **Demo del test 2 sin tocar datos:** la misma lógica del test como consulta ad hoc (`dbt show --inline`) quitando `2024-01`
+  de `con_datos` → devuelve `periodo_faltante = 2024-01` (secuencia de 62 meses). Snowflake no se modificó.
+- Namespace files re-subidos con `docker compose up kestra-init` (6 flows OK, dbt 26 archivos, job de Spark).
+- Columnas de la OBT (37): grain (2) + cantón (5) + fecha (11) + medidas (9) + `lag_1d, lag_7d, lag_14d, lag_28d,
+  media_prev_7d, media_prev_28d, es_feriado_t3, es_feriado_t7` (8) + `obj_n_emergencias_t3, obj_n_emergencias_t7` (2).
+
+**Preguntas del profesor:**
+1. *¿Por qué `es_feriado_t7` puede usar el futuro y `obj_n_emergencias_t7` no?* — El feriado se conoce de antemano (calendario
+   oficial): al cierre del día t ya se sabe si t+7 es feriado. El volumen de t+7 no se conoce en t; es lo que se quiere predecir.
+2. *¿Por qué dejar NULL en vez de promediar los días disponibles al inicio?* — Una media de 3 días tiene mucha más varianza que una
+   de 28, pero tendría el mismo nombre: el modelo trataría igual dos cosas distintas. Con NULL, la etapa de ML decide (descartar
+   los primeros 28 días de cada cantón o imputar), y son solo 6,272 de 422,912 filas (1.5%).
+3. *¿Qué pasa con los lags si falta un mes completo?* — Los lags son por posición de fila y el spine cubre todo el rango: un mes
+   ausente sería ~30 días de ceros falsos que contaminan `lag_*` y `media_prev_*` hasta 28 días después. Por eso
+   `silver_sin_meses_faltantes` lo detiene en Silver, antes de construir Gold y la OBT.
+
 ---
 
 ## Pendiente
-- **FASE 13 — demo de retries y backfill:** preparar/demostrar en vivo (retry del portal, backfill con transformar=false). · FASE 14 — README/documentación · FASE 15 — defensa.
+- **FASE 14 — demo de retries y backfill:** preparar/demostrar en vivo (retry del portal, backfill con transformar=false). · FASE 15 — README/documentación · FASE 16 — defensa.
 - Ideas/limitaciones anotadas: correcciones de meses viejos en la fuente no se detectan solas (solo se recargan los 2 últimos
   meses; recargar con backfill/ingest_month); población INEC y feriados como seeds de dbt (feriados recomendado).

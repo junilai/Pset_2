@@ -114,4 +114,5 @@ filas del hecho = cantones × días; suma del hecho = Silver válidas; suma de l
 ## Qué NO va en Gold
 - **Target `y_h` y P90**: se calculan en ML, con el corte train/test (evita leakage).
 - **Lags y medias móviles** (features): se construyen en la OBT con Spark (Fase 11), a partir de este hecho.
+  Usan solo días anteriores a t (`lag_1d/7d/14d/28d`, `media_prev_7d/28d`; Fase 13).
 - **Población por cantón (INEC)**: sería útil para calcular tasas, pero no se incluye. Queda como limitación y mejora futura.

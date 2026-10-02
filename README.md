@@ -96,7 +96,7 @@ FROM ECU911.BRONZE.EMERGENCIAS_RAW GROUP BY 1 ORDER BY 1;
 - **Manual (desarrollo):**
   ```powershell
   docker compose run --rm dbt debug      # prueba la conexión
-  docker compose run --rm dbt build      # seeds + SILVER + GOLD + 38 tests (~45 s)
+  docker compose run --rm dbt build      # seeds + SILVER + GOLD + tests: PASS=39 (~45 s)
   ```
 - Si se edita algo en `dbt/`, re-subirlo a Kestra con `docker compose up -d kestra-init`.
 - Demo de un test que falla (sin tocar código): `docker compose run --rm dbt build --vars "{periodos_anomalos: []}"`
@@ -119,7 +119,9 @@ Modelo dimensional: [`docs/modelo_dimensional.md`](docs/modelo_dimensional.md).
     --packages net.snowflake:spark-snowflake_2.12:3.2.2-spark_3.5 --conf spark.jars.ivy=/tmp/.ivy2 `
     /opt/spark-jobs/build_obt.py
   ```
-  Debe terminar en `OBT OK` con 5 líneas `[validar] OK` (filas, duplicados, suma, match de cantón y de fecha).
+  Debe terminar en `OBT OK` con 7 líneas `[validar] OK` (filas, duplicados, suma, match de cantón y de fecha,
+  `es_feriado_t3` y `es_feriado_t7` sin nulos). La OBT tiene 37 columnas; la convención temporal de las features
+  está en el docstring de `build_obt.py`.
 - UI del cluster: http://localhost:8090 (la aplicación `pset2-obt` aparece mientras corre).
 
 ```sql
