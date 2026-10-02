@@ -27,6 +27,7 @@ CSV con `;` (y 2 meses en XLSX). ~17.7 millones de registros. Sin ID de incident
 ├── kestra/
 │   ├── deploy_flows.sh       # lo ejecuta kestra-init: sube los flows y el proyecto dbt a Kestra por API
 │   └── flows/
+│       ├── ecu911_run_all.yml            # setup + carga por rango + transform en una ejecución
 │       ├── ecu911_snowflake_setup.yml    # crea warehouse, database, schemas, rol y usuario
 │       ├── ecu911_ingest_month.yml       # carga UN mes a BRONZE (idempotente)
 │       ├── ecu911_ingest_scheduled.yml   # trigger mensual + backfill; al final lanza transform
@@ -84,6 +85,13 @@ en un Mac ARM. La primera construcción requiere Internet y tarda más que los s
 ### Atajo: todo con un clic
 Flows → `ecu911.run_all` → **Execute** (defaults: `desde = 2021-07`, `hasta` vacío = mes anterior, `setup = true`).
 Ejecuta `snowflake_setup` → `ingest_month` por cada mes del rango (4 a la vez) → `transform`. Idempotente.
+Para reproducir el histórico de 62 meses y los conteos documentados abajo, usa
+`desde = 2021-07`, `hasta = 2026-08` y `setup = true`.
+Si dejas `hasta` vacío y el mes anterior todavía no está publicado, esa carga falla con
+un mensaje explícito y `run_all` puede terminar en `WARNING`; la transformación continúa
+con los meses disponibles. Revisa que `transform`, `dbt_build`, `spark_obt` y la
+reconciliación hayan terminado correctamente. `setup = false` requiere que los objetos
+y permisos de Snowflake ya existan.
 Los pasos 3–4 y 6–7 de abajo hacen lo mismo por partes.
 
 ### 3. Crear la infraestructura en Snowflake
