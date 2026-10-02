@@ -81,6 +81,11 @@ en un Mac ARM. La primera construcción requiere Internet y tarda más que los s
 
 > Si se edita `.env`, volver a correr `docker compose up -d` (Docker solo lee `.env` al crear el contenedor).
 
+### Atajo: todo con un clic
+Flows → `ecu911.run_all` → **Execute** (defaults: `desde = 2021-07`, `hasta` vacío = mes anterior, `setup = true`).
+Ejecuta `snowflake_setup` → `ingest_month` por cada mes del rango (4 a la vez) → `transform`. Idempotente.
+Los pasos 3–4 y 6–7 de abajo hacen lo mismo por partes.
+
 ### 3. Crear la infraestructura en Snowflake
 Kestra → Flows → `ecu911.snowflake_setup` → **Execute**.
 Crea `ECU911_WH` (X-Small, auto-suspend 60 s), `ECU911` con schemas `BRONZE/SILVER/GOLD/OBT`, rol `ECU911_ROLE` y usuario `ECU911_USER`. Idempotente.
