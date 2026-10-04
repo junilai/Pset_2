@@ -33,3 +33,6 @@ Thumbs.db
 # PDFs de referencia (enunciado y memo del PSet 1): no son parte del código
 CD_PSet_2.pdf
 PSet1_memo_*.pdf
+
+# Entregable (documento técnico): se entrega aparte, no va al repo
+entregable/
