@@ -150,7 +150,8 @@ SELECT COUNT(*), COUNT(DISTINCT COD_CANTON, FECHA) FROM ECU911.OBT.OBT_EMERGENCI
 
 ## Documento técnico
 
-El documento técnico se entrega como PDF separado del repositorio, con un máximo de seis páginas.
+El [documento técnico (PDF)](docs/PSet2_memo_Tierra_Rodriguez_Rodriguez_Cadena_Jarrin.pdf)
+está incluido en el repositorio y tiene seis páginas.
 Incluye la arquitectura, las decisiones de calidad, el modelo dimensional, la OBT,
 los resultados verificados y las limitaciones.
 

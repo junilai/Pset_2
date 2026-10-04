@@ -34,10 +34,11 @@ Thumbs.db
 CD_PSet_2.pdf
 PSet1_memo_*.pdf
 
-# Entregable (documento técnico): se entrega aparte, no va al repo
+# Material auxiliar local
 entregable/
 
-# Material local: memo entregado por separado y bitácora de trabajo.
+# Material local: borradores y bitácora de trabajo.
 /docs/PSet2_memo_*.pdf
+!/docs/PSet2_memo_Tierra_Rodriguez_Rodriguez_Cadena_Jarrin.pdf
 /docs/PSet2_memo_*.md
 /docs/PROGRESO.md
