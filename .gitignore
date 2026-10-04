@@ -2,6 +2,7 @@
 .env
 *.p8
 *.pem
+*.key
 
 # dbt
 dbt/**/target/
