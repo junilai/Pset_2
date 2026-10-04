@@ -6,7 +6,7 @@
 #
 # Por qué no usamos --flow-path: en Kestra 1.3 ese loader corre ANTES de que
 # se registren los plugins externos (python, dbt, snowflake...) y rechaza los
-# flows con "Invalid type". Ver docs de la FASE 2.
+# flows con "Invalid type". La importación por API se realiza después del arranque.
 #
 # Ojo: la API /flows/import responde HTTP 200 incluso si rechaza un flow;
 # los rechazados vienen listados en el cuerpo. Por eso revisamos el cuerpo.

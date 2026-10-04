@@ -148,6 +148,12 @@ Modelo dimensional: [`docs/modelo_dimensional.md`](docs/modelo_dimensional.md).
 SELECT COUNT(*), COUNT(DISTINCT COD_CANTON, FECHA) FROM ECU911.OBT.OBT_EMERGENCIAS_CANTON_DIA;  -- 422,912 y 422,912
 ```
 
+## Documento técnico
+
+El documento técnico se entrega como PDF separado del repositorio, con un máximo de seis páginas.
+Incluye la arquitectura, las decisiones de calidad, el modelo dimensional, la OBT,
+los resultados verificados y las limitaciones.
+
 ## Apagar
 ```powershell
 docker compose stop      # conserva todo (flows, historial de Kestra); los datos viven en Snowflake

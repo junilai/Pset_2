@@ -2,7 +2,7 @@
 -- de los meses vecinos (±3). Detecta archivos incompletos o cargas parciales.
 -- Por día (no por mes) para que febrero no parezca anómalo.
 -- Los meses ya revisados y aceptados se excluyen con var('periodos_anomalos').
--- Umbral: el mes normal más alejado está a ~12%; 2024-01 a ~26% (Fase 10).
+-- Umbral: el mes normal más alejado está a ~12%; 2024-01 a ~28.2%.
 with mensual as (
     select periodo, count(*) / count(distinct fecha) as por_dia
     from {{ ref('emergencias') }}

@@ -1,5 +1,5 @@
 """
-FASE 11 - One Big Table (OBT) con Spark.
+One Big Table (OBT) con Spark.
 
 Lee el star schema de GOLD (Snowflake), une el hecho con sus dimensiones,
 agrega features de series de tiempo por cantón y escribe OBT.OBT_EMERGENCIAS_CANTON_DIA.

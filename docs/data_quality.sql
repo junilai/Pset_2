@@ -1,5 +1,5 @@
 -- =============================================================================
--- FASE 6 - Profiling de calidad sobre ECU911.BRONZE.EMERGENCIAS_RAW
+-- Perfilado de calidad sobre ECU911.BRONZE.EMERGENCIAS_RAW
 -- Solo lectura. Ejecutar en Snowsight (warehouse ECU911_WH).
 -- Resultados (29-sep-2026, 17,680,253 filas, 62 meses) en el comentario de cada bloque.
 -- =============================================================================

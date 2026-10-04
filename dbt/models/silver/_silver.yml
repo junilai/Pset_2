@@ -4,7 +4,7 @@ models:
   - name: emergencias
     description: >
       Incidentes del ECU 911 limpios y tipados. Grain: 1 fila = 1 incidente (misma cantidad de filas que BRONZE).
-      Los duplicados exactos se CONSERVAN: sin ID de incidente son emergencias distintas con los mismos atributos.
+      Las repeticiones de atributos se CONSERVAN: sin ID de incidente no se puede confirmar si representan el mismo evento.
     columns:
       - name: incidente_id
         description: Periodo + nº de fila del archivo. Si se repite, un mes se cargó dos veces.

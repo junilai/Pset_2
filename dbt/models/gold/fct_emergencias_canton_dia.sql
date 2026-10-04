@@ -19,7 +19,7 @@ with conteos as (
         count_if(servicio = 'Gestión de Riesgos')       as n_gestion_riesgos,
         count_if(servicio is null)                      as n_sin_servicio
     from {{ ref('emergencias') }}
-    where es_ubicacion_valida           -- sin cantón no se puede asignar (hallazgo #1)
+    where es_ubicacion_valida           -- sin cantón no se puede asignar
     group by cod_canton, fecha
 
 ),

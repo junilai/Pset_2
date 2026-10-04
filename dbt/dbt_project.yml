@@ -1,4 +1,4 @@
-# Proyecto dbt del PSet #2: BRONZE -> SILVER (Fase 7) -> GOLD (Fase 9)
+# Proyecto dbt del PSet #2: BRONZE -> SILVER -> GOLD
 name: ecu911
 version: "1.0.0"
 profile: ecu911            # conexión definida en profiles.yml (misma carpeta)
@@ -9,7 +9,7 @@ test-paths: ["tests"]
 seed-paths: ["seeds"]
 
 vars:
-  # Meses con volumen anómalo detectados en la Fase 6 (hallazgo #8).
+  # Meses con volumen anómalo detectados durante el perfilado de calidad.
   # No se borran: se marcan para que la etapa de ML decida si excluirlos.
   periodos_anomalos: ["2024-01"]
 

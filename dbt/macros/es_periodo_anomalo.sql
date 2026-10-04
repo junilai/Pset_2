@@ -1,4 +1,4 @@
--- Condición "el periodo está en var('periodos_anomalos')" (hallazgo #8).
+-- Condición "el periodo está en var('periodos_anomalos')".
 -- Con la lista vacía devuelve false: "periodo in ()" no es SQL válido en Snowflake.
 {% macro es_periodo_anomalo(columna) -%}
     {%- set periodos = var('periodos_anomalos') -%}

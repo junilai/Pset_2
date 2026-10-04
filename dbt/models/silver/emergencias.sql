@@ -2,7 +2,7 @@
 -- SILVER.EMERGENCIAS
 -- Grain: 1 fila = 1 incidente (= 1 fila de BRONZE). No se elimina ninguna fila:
 -- los problemas se corrigen o se marcan con banderas (es_*), nunca se borran.
--- Los números (#) son los hallazgos de la Fase 6 (docs/PROGRESO.md).
+-- Las decisiones de limpieza se documentan en docs/data_quality.sql.
 -- =============================================================================
 
 with bronze as (
@@ -14,24 +14,24 @@ with bronze as (
 limpio as (
 
     select
-        -- ID técnico: la fuente no trae ID (#7). Mes + nº de fila del archivo es único
+        -- ID técnico: la fuente no trae ID. Mes + nº de fila del archivo es único
         -- porque cada mes se carga completo con DELETE + COPY (idempotente).
         _periodo || '-' || _fila_archivo                                   as incidente_id,
 
-        -- #6 dos formatos: texto d/m/yyyy (CSV) o número serial de Excel (XLSX)
+        -- Dos formatos: texto d/m/yyyy (CSV) o número serial de Excel (XLSX)
         coalesce(
             try_to_date(trim(fecha), 'DD/MM/YYYY'),
             dateadd(day, try_to_number(trim(fecha), 10, 1)::int, '1899-12-30'::date)
         )                                                                  as fecha,
 
-        -- #1 #5 #10 vacíos/'NULL'/'0' -> NULL, 'Ð' -> 'Ñ', TRIM
+        -- Vacíos/'NULL'/'0' -> NULL, 'Ð' -> 'Ñ', TRIM
         {{ limpiar_texto('provincia') }}                                   as provincia,
         {{ limpiar_texto('canton') }}                                      as canton,
         {{ limpiar_texto('parroquia') }}                                   as parroquia,
         {{ limpiar_texto('servicio') }}                                    as servicio,
         {{ limpiar_texto('subtipo') }}                                     as subtipo,
 
-        -- #2 el código DPA tiene 6 dígitos; 7.2% de filas perdió el cero inicial
+        -- El código DPA tiene 6 dígitos; 7.2% de filas perdió el cero inicial
         iff(trim(cod_parroquia) rlike '^[0-9]{5,6}$',
             lpad(trim(cod_parroquia), 6, '0'), null)                       as cod_parroquia,
 
@@ -46,7 +46,7 @@ limpio as (
 
 ),
 
--- #3 #4 Clave del cantón = código DPA de 4 dígitos MÁS FRECUENTE para (provincia, cantón).
+-- Clave del cantón = código DPA de 4 dígitos MÁS FRECUENTE para (provincia, cantón).
 --   - evita juntar homónimos (BOLIVAR de Carchi y de Manabí) -> no se usa solo el nombre
 --   - corrige códigos por defecto (090150 en filas de MORONA SANTIAGO)
 codigo_canton as (
@@ -67,7 +67,7 @@ codigo_canton as (
 
 ),
 
--- #11 Cambios de límites: parroquias que hoy son otro cantón (seed cantones_reasignados).
+-- Cambios de límites: parroquias que hoy son otro cantón (seed cantones_reasignados).
 --     Se usa la geografía VIGENTE para que la serie de cada cantón sea comparable en el tiempo.
 reasignados as (
 
@@ -89,10 +89,10 @@ select
     l.subtipo,
 
     -- banderas de calidad
-    c.cod_canton is not null                                        as es_ubicacion_valida,   -- #1
-    coalesce(left(l.cod_parroquia, 4) <> c.cod_canton, false)       as es_codigo_corregido,   -- #3
-    r.cod_canton_vigente is not null                                as es_canton_reasignado,  -- #11
-    {{ es_periodo_anomalo("l.periodo") }}                          as es_periodo_anomalo,    -- #8
+    c.cod_canton is not null                                        as es_ubicacion_valida,
+    coalesce(left(l.cod_parroquia, 4) <> c.cod_canton, false)       as es_codigo_corregido,
+    r.cod_canton_vigente is not null                                as es_canton_reasignado,
+    {{ es_periodo_anomalo("l.periodo") }}                          as es_periodo_anomalo,
 
     l.fila_archivo,
     l.url_origen,

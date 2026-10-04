@@ -11,4 +11,4 @@ seeds:
         tests: [unique, not_null]
 
   - name: cantones_reasignados
-    description: Parroquias que pasaron a ser cantón; sus filas antiguas se asignan al cantón vigente (hallazgo #11).
+    description: Parroquias que pasaron a ser cantón; sus filas antiguas se asignan al cantón vigente.
